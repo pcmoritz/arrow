@@ -23,6 +23,7 @@
 #include "arrow/util/bit-util.h"
 #include "arrow/util/buffer.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/memory-util.h"
 
 namespace arrow {
 
@@ -98,7 +99,7 @@ Status PrimitiveBuilder<T>::Init(int32_t capacity) {
   int64_t nbytes = TypeTraits<T>::bytes_required(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
   // TODO(emkornfield) valgrind complains without this
-  memset(data_->mutable_data(), 0, nbytes);
+  // memset(data_->mutable_data(), 0, nbytes);
 
   raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
   return Status::OK();
@@ -128,7 +129,12 @@ Status PrimitiveBuilder<T>::Append(
   RETURN_NOT_OK(Reserve(length));
 
   if (length > 0) {
-    memcpy(raw_data_ + length_, values, TypeTraits<T>::bytes_required(length));
+    size_t numbytes = TypeTraits<T>::bytes_required(length);
+    if (numbytes >= 1<<20) {
+        memcopy_frame_aligned((uint8_t *)(raw_data_ + length_), (uint8_t *)values, numbytes, true);
+    } else {
+      memcpy(raw_data_ + length_, values, numbytes);
+    }
   }
 
   // length_ is update by these
@@ -172,7 +178,7 @@ Status BooleanBuilder::Init(int32_t capacity) {
   int64_t nbytes = BitUtil::BytesForBits(capacity);
   RETURN_NOT_OK(data_->Resize(nbytes));
   // TODO(emkornfield) valgrind complains without this
-  memset(data_->mutable_data(), 0, nbytes);
+  //memset(data_->mutable_data(), 0, nbytes);
 
   raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
   return Status::OK();
