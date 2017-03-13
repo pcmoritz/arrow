@@ -131,7 +131,7 @@ Status PrimitiveBuilder<T>::Append(
   if (length > 0) {
     size_t numbytes = TypeTraits<T>::bytes_required(length);
     if (numbytes >= 1<<20) {
-        memcopy_frame_aligned((uint8_t *)(raw_data_ + length_), (uint8_t *)values, numbytes, true);
+        memcopy_aligned((uint8_t *)(raw_data_ + length_), (uint8_t *)values, numbytes, false);
     } else {
       memcpy(raw_data_ + length_, values, numbytes);
     }
