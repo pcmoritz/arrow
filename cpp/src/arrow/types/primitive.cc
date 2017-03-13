@@ -118,7 +118,12 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
     const int64_t new_bytes = TypeTraits<T>::bytes_required(capacity);
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-    memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
+    if ((new_bytes - old_bytes) >= (uint64_t)(1 << 15)) {
+      memset_aligned(data_->mutable_data() + old_bytes, 0,
+          new_bytes - old_bytes, false);
+    } else {
+      memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
+    }
   }
   return Status::OK();
 }
@@ -197,7 +202,12 @@ Status BooleanBuilder::Resize(int32_t capacity) {
 
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-    memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
+    if ((new_bytes - old_bytes) >= (1 << 15)) {
+      memset_aligned(data_->mutable_data() + old_bytes, 0,
+          new_bytes - old_bytes, false);
+    } else {
+      memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
+    }
   }
   return Status::OK();
 }
