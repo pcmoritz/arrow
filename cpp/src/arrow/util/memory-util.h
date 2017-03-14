@@ -27,18 +27,21 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define NUMTHREADS 8
+#define MB  (1<<20)
+#define KB  (1<<10)
+
 namespace arrow {
 
-static inline int memcopy_aligned(uint8_t *dst, const uint8_t *src, uint64_t nbytes, bool timeit)
-{
-#ifndef NUMTHREADS
-#define NUMTHREADS 8
-#endif
+static std::vector<std::thread> threadpool(NUMTHREADS);
+
+static inline int memcopy_aligned(uint8_t *dst, const uint8_t *src,
+                                  uint64_t nbytes, uint64_t blocksz,
+                                  bool timeit) {
   int rv = 0;
   struct timeval tv1, tv2;
   double elapsed = 0;
   const uint64_t numthreads = NUMTHREADS;
-  const uint64_t blocksz = getpagesize();
   const char *srcbp = (char *)(((uint64_t)src + blocksz-1) & ~(blocksz-1));
   char *srcep = (char *)(((uint64_t)src + nbytes) & ~(blocksz-1));
 
@@ -57,21 +60,21 @@ static inline int memcopy_aligned(uint8_t *dst, const uint8_t *src, uint64_t nby
   // chunksz = k*blocksz => data == | prefix | numthreads*chunksz | suffix |
   // Each thread gets a "chunk" of k blocks, except prefix and suffix threads.
 
-  std::vector<std::thread> threads;
-  // Start the prefix thread.
   if (timeit) {
     gettimeofday(&tv1, NULL);
   }
-  threads.push_back(std::thread(memcpy, dst, src, prefix));
-  for (int i = 1; i <= numthreads; i++) {
-    threads.push_back(std::thread(
-        memcpy, dst+prefix+(i-1)*chunksz, srcbp + (i-1)*chunksz, chunksz));
+  // Start memcpy threads and then copy the prefix and suffix while threads run.
+  for (int i = 0; i < numthreads; i++) {
+    threadpool[i] = std::thread(
+        memcpy, dst+prefix+i*chunksz, srcbp + i*chunksz, chunksz);
   }
-  threads.push_back(std::thread(memcpy, dstep, srcep, suffix));
+//  threads.push_back(std::thread(memcpy, dstep, srcep, suffix));
+//  threadpool[NUMTHREADS-1] = std::thread(memcpy, dstep, srcep, suffix);
+  memcpy(dst, src, prefix);
+  memcpy(dstep, srcep, suffix);
 
-  // Join the memcpy threads.
-  for (auto &t: threads) {
-    t.join();
+  for (auto &t: threadpool) {
+      t.join(); // Join all the memcpy threads.
   }
   if (timeit) {
     gettimeofday(&tv2, NULL);
@@ -82,16 +85,12 @@ static inline int memcopy_aligned(uint8_t *dst, const uint8_t *src, uint64_t nby
   return rv;
 }
 
-static inline int memset_aligned(uint8_t *dst, int val, uint64_t nbytes, bool timeit)
-{
-#ifndef NUMTHREADS
-#define NUMTHREADS 8
-#endif
+static inline int memset_aligned(uint8_t *dst, int val, uint64_t nbytes,
+                                 uint64_t blocksz, bool timeit) {
   int rv = 0;
   struct timeval tv1, tv2;
   double elapsed = 0;
   const uint64_t numthreads = NUMTHREADS;
-  const uint64_t blocksz = 64; // cache block aligned
   const char *dstbp = (char *)(((uint64_t)dst + blocksz-1) & ~(blocksz-1));
   char *dstep = (char *)(((uint64_t)dst + nbytes) & ~(blocksz-1));
   const uint64_t chunksz = ((uint64_t)dstep - (uint64_t)dstbp) / numthreads;//B
@@ -105,28 +104,47 @@ static inline int memset_aligned(uint8_t *dst, int val, uint64_t nbytes, bool ti
   const uint64_t prefix = (uint64_t)dstbp - (uint64_t)dst; // Bytes
   const uint64_t suffix = (uint64_t)(dst+nbytes) - (uint64_t)dstep; // Bytes
   std::vector<std::thread> threads;
-  // Start the prefix thread.
   if (timeit) {
     gettimeofday(&tv1, NULL);
   }
-  threads.push_back(std::thread(memset, dst, val, prefix));
-  for (int i = 1; i <= numthreads; i++) {
-    threads.push_back(std::thread(
-        memset, dst+prefix+(i-1)*chunksz, val, chunksz));
+//  threads.push_back(std::thread(memset, dst, val, prefix));
+  // Start all threads first. Handle leftovers while threads are running.
+  for (int i = 0; i < numthreads; i++) {
+//    threads.push_back(std::thread(
+    threadpool[i] = std::thread(memset, dst+prefix+i*chunksz, val, chunksz);
   }
-  threads.push_back(std::thread(memset, dstep, val, suffix));
+//  threads.push_back(std::thread(memset, dstep, val, suffix));
+  memset(dst, val, prefix);
+  memset(dstep, val, suffix);
 
   // Join the memcpy threads.
-  for (auto &t: threads) {
+  for (auto &t : threadpool) {
     t.join();
   }
   if (timeit) {
     gettimeofday(&tv2, NULL);
-    elapsed = ((tv2.tv_sec - tv1.tv_sec)*1000000 + (tv2.tv_usec - tv1.tv_usec))/1000000.0;
-    printf("copied %llu bytes in time = %8.4f MBps=%8.4f\n",
-           nbytes, elapsed, nbytes/((1<<20)*elapsed));
+    elapsed =
+        ((tv2.tv_sec - tv1.tv_sec) * 1000000 + (tv2.tv_usec - tv1.tv_usec))
+            / 1000000.0;
+    printf("copied %llu bytes in time = %8.4f MBps=%8.4f\n", nbytes, elapsed,
+        nbytes / ((1 << 20) * elapsed));
   }
   return rv;
+}
+
+inline int memset_block_aligned(uint8_t *dst, int val, uint64_t nbytes){
+  return memset_aligned(dst, val, nbytes, 64, false);
+}
+
+inline int memset_page_aligned(uint8_t *dst, int val, uint64_t nbytes) {
+  return memset_aligned(dst, val, nbytes, getpagesize(), false);
+}
+
+inline int memcopy_block_aligned(uint8_t *dst, uint8_t *src, uint64_t nbytes) {
+  return memcopy_aligned(dst, src, nbytes, 64, false);
+}
+inline int memcopy_page_aligned(uint8_t *dst, uint8_t *src, uint64_t nbytes) {
+  return memcopy_aligned(dst, src, nbytes, getpagesize(), false);
 }
 
 }  // namespace arrow

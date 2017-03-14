@@ -118,9 +118,9 @@ Status PrimitiveBuilder<T>::Resize(int32_t capacity) {
     const int64_t new_bytes = TypeTraits<T>::bytes_required(capacity);
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<value_type*>(data_->mutable_data());
-    if ((new_bytes - old_bytes) >= (uint64_t)(1 << 15)) {
-      memset_aligned(data_->mutable_data() + old_bytes, 0,
-          new_bytes - old_bytes, false);
+    if ((new_bytes - old_bytes) >= 32*KB) {
+      memset_page_aligned(
+          data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
     } else {
       memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
     }
@@ -135,8 +135,9 @@ Status PrimitiveBuilder<T>::Append(
 
   if (length > 0) {
     size_t numbytes = TypeTraits<T>::bytes_required(length);
-    if (numbytes >= 1<<20) {
-        memcopy_aligned((uint8_t *)(raw_data_ + length_), (uint8_t *)values, numbytes, false);
+    if (numbytes >= MB) {
+        memcopy_block_aligned((uint8_t *)(raw_data_ + length_),
+                              (uint8_t *)values, numbytes);
     } else {
       memcpy(raw_data_ + length_, values, numbytes);
     }
@@ -202,9 +203,9 @@ Status BooleanBuilder::Resize(int32_t capacity) {
 
     RETURN_NOT_OK(data_->Resize(new_bytes));
     raw_data_ = reinterpret_cast<uint8_t*>(data_->mutable_data());
-    if ((new_bytes - old_bytes) >= (1 << 15)) {
-      memset_aligned(data_->mutable_data() + old_bytes, 0,
-          new_bytes - old_bytes, false);
+    if ((new_bytes - old_bytes) >= 32*KB) {
+      memset_page_aligned(
+          data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
     } else {
       memset(data_->mutable_data() + old_bytes, 0, new_bytes - old_bytes);
     }
