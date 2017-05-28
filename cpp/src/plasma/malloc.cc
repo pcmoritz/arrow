@@ -10,9 +10,8 @@
 
 #include "plasma_common.h"
 
-extern "C" {
 void *fake_mmap(size_t);
-int fake_munmap(void *, size_t);
+int fake_munmap(void *, int64_t);
 
 #define MMAP(s) fake_mmap(s)
 #define MUNMAP(a, s) fake_munmap(a, s)
@@ -32,7 +31,6 @@ int fake_munmap(void *, size_t);
 #undef USE_DL_PREFIX
 #undef HAVE_MORECORE
 #undef DEFAULT_GRANULARITY
-}
 
 struct mmap_record {
   int fd;
@@ -126,7 +124,7 @@ void *fake_mmap(size_t size) {
   return pointer;
 }
 
-int fake_munmap(void *addr, size_t size) {
+int fake_munmap(void *addr, int64_t size) {
   ARROW_LOG(DEBUG) << "fake_munmap(" << addr << ", " << size << ")";
   addr = pointer_retreat(addr, sizeof(size_t));
   size += sizeof(size_t);

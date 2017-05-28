@@ -70,7 +70,7 @@ Status ReadMessage(int fd, int64_t *type, std::vector<uint8_t> &buffer) {
   int64_t version;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t *>(&version), sizeof(version)), *type = DISCONNECT_CLIENT);
   ARROW_CHECK(version == RAY_PROTOCOL_VERSION) << "version = " << version;
-  int64_t length;
+  size_t length;
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t *>(type), sizeof(*type)), *type = DISCONNECT_CLIENT);
   RETURN_NOT_OK_ELSE(ReadBytes(fd, reinterpret_cast<uint8_t *>(&length), sizeof(length)), *type = DISCONNECT_CLIENT);
   if (length > buffer.size()) {

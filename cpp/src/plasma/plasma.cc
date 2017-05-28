@@ -19,6 +19,7 @@ int warn_if_sigpipe(int status, int client_sock) {
     return errno;
   }
   ARROW_LOG(FATAL) << "Failed to write message to client on fd " << client_sock << ".";
+  return -1; // This is never reached.
 }
 
 /**
