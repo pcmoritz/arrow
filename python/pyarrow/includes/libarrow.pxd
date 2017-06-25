@@ -520,6 +520,9 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         (OutputStream):
         CBufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)
 
+    cdef cppclass CFixedSizeBufferWrite" arrow::io::FixedSizeBufferWriter"(WriteableFile):
+        CFixedSizeBufferWrite(const shared_ptr[CBuffer]& buffer)
+
 
 cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:
     cdef cppclass SchemaMessage:
