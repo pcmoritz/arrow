@@ -5,7 +5,7 @@ import pyarrow as pa
 import time
 import multimerge
 
-num_cores = 32
+num_cores = 64
 client = None
 
 # Connect to clients
@@ -31,7 +31,7 @@ def put(array):
 #     return pa.read_tensor(reader).to_numpy()
 
 # data = np.random.random(10000000)
-data = np.random.random(400000000)
+data = np.random.random(800000000)
 
 def local_sort(object_id):
     [tensor] = client.get([object_id])
@@ -46,9 +46,16 @@ pool = Pool(initializer=connect, initargs=(), processes=num_cores)
 # Connect the main process
 connect()
 
-a = time.time()
+data = np.random.random(100000000)
+for i in range(100):
+  object_id = put(data)
+  client.get([object_id])
 
 partitions = [put(array) for array in np.array_split(data, num_cores)]
+
+time.sleep(5.0)
+
+a = time.time()
 
 object_ids, pivot_groups = list(zip(*pool.map(local_sort, partitions)))
 
@@ -65,10 +72,9 @@ def local_partitions(object_id):
   return [put(partition) for partition in np.split(array, split_at)]
 
 def merge(object_ids):
-  tensors = []
+  tensors = client.get(object_ids)
   arrays = []
-  for object_id in object_ids:
-    [tensor] = client.get([object_id])
+  for tensor in tensors:
     tensors.append(tensor)
     reader = pa.BufferReader(tensor)
     array = pa.read_tensor(reader).to_numpy()
@@ -80,6 +86,10 @@ results = list(zip(*pool.map(local_partitions, object_ids)))
 
 object_ids = pool.map(merge, results)
 
+b = time.time() - a
+print("b1", b)
+
+a = time.time()
 tensors = []
 arrays = []
 for object_id in object_ids:
@@ -88,7 +98,7 @@ for object_id in object_ids:
   reader = pa.BufferReader(tensor)
   array = pa.read_tensor(reader).to_numpy()
   arrays.append(array)
-
-np.concatenate(arrays)
-
 b = time.time() - a
+print("b2", b)
+
+# np.concatenate(arrays)
