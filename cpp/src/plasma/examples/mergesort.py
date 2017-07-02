@@ -31,6 +31,7 @@ def put(array):
 #     return pa.read_tensor(reader).to_numpy()
 
 # data = np.random.random(10000000)
+np.random.seed(0)
 data = np.random.random(800000000)
 
 def local_sort(object_id):
@@ -45,11 +46,6 @@ def local_sort(object_id):
 pool = Pool(initializer=connect, initargs=(), processes=num_cores)
 # Connect the main process
 connect()
-
-data = np.random.random(100000000)
-for i in range(100):
-  object_id = put(data)
-  client.get([object_id])
 
 partitions = [put(array) for array in np.array_split(data, num_cores)]
 
@@ -75,7 +71,6 @@ def merge(object_ids):
   tensors = client.get(object_ids)
   arrays = []
   for tensor in tensors:
-    tensors.append(tensor)
     reader = pa.BufferReader(tensor)
     array = pa.read_tensor(reader).to_numpy()
     arrays.append(array)
