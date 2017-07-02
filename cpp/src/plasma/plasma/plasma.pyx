@@ -24,14 +24,17 @@ from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
 from libc.stdint cimport int64_t, uint8_t, uintptr_t
+from cython.operator import dereference
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status
-from pyarrow.includes.libarrow cimport MutableBuffer, CBuffer, CFixedSizeBufferWrite, CStatus
+from pyarrow.includes.libarrow cimport MutableBuffer, CBuffer, CFixedSizeBufferWriter, CStatus
 
 cdef class FixedSizeBufferOutputStream(NativeFile):
 
     def __cinit__(self, Buffer buffer):
-        self.wr_file.reset(new CFixedSizeBufferWrite(buffer.buffer))
+        writer = new CFixedSizeBufferWriter(buffer.buffer)
+        dereference(writer).set_memcopy_threads(8)
+        self.wr_file.reset(writer)
         self.is_readable = 0
         self.is_writeable = 1
         self.is_open = True

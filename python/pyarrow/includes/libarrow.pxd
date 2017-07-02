@@ -523,8 +523,9 @@ cdef extern from "arrow/io/memory.h" namespace "arrow::io" nogil:
         (OutputStream):
         CBufferOutputStream(const shared_ptr[ResizableBuffer]& buffer)
 
-    cdef cppclass CFixedSizeBufferWrite" arrow::io::FixedSizeBufferWriter"(WriteableFile):
-        CFixedSizeBufferWrite(const shared_ptr[CBuffer]& buffer)
+    cdef cppclass CFixedSizeBufferWriter" arrow::io::FixedSizeBufferWriter"(WriteableFile):
+        CFixedSizeBufferWriter(const shared_ptr[CBuffer]& buffer)
+        void set_memcopy_threads(int num_threads)
 
 
 cdef extern from "arrow/ipc/metadata.h" namespace "arrow::ipc" nogil:

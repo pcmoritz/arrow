@@ -3,7 +3,7 @@ import numpy as np
 import plasma
 import pyarrow as pa
 import time
-# import multimerge
+import multimerge
 
 num_cores = 32
 client = None
@@ -30,6 +30,9 @@ def put(array):
 #     reader = pa.BufferReader(tensor)
 #     return pa.read_tensor(reader).to_numpy()
 
+# data = np.random.random(10000000)
+data = np.random.random(400000000)
+
 def local_sort(object_id):
     [tensor] = client.get([object_id])
     reader = pa.BufferReader(tensor)
@@ -43,8 +46,8 @@ pool = Pool(initializer=connect, initargs=(), processes=num_cores)
 # Connect the main process
 connect()
 
-# data = np.random.random(10000000)
-data = np.random.random(200000000)
+a = time.time()
+
 partitions = [put(array) for array in np.array_split(data, num_cores)]
 
 object_ids, pivot_groups = list(zip(*pool.map(local_sort, partitions)))
@@ -74,3 +77,18 @@ def merge(object_ids):
 
 pool = Pool(initializer=connect, initargs=(), processes=num_cores)
 results = list(zip(*pool.map(local_partitions, object_ids)))
+
+object_ids = pool.map(merge, results)
+
+tensors = []
+arrays = []
+for object_id in object_ids:
+  [tensor] = client.get([object_id])
+  tensors.append(tensor)
+  reader = pa.BufferReader(tensor)
+  array = pa.read_tensor(reader).to_numpy()
+  arrays.append(array)
+
+np.concatenate(arrays)
+
+b = time.time() - a
