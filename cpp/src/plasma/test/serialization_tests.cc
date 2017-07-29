@@ -73,6 +73,7 @@ PlasmaObject random_plasma_object(void) {
 }
 
 TEST(PlasmaSerialization, CreateRequest) {
+  ARROW_LOG(ERROR) << "XXX this is a test" << "another one";
   int fd = create_temp_file();
   ObjectID object_id1 = ObjectID::from_random();
   int64_t data_size1 = 42;
