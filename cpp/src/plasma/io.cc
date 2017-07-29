@@ -164,16 +164,19 @@ Status ConnectIpcSocketRetry(const std::string& pathname, int num_retries,
       break;
     }
     if (num_attempts == 0) {
-      std::cout << "XXX pathname is " << pathname << std::endl;
-      std::cerr << "XXX pathname is " << pathname << std::endl;
-      ARROW_LOG(ERROR) << "Connection to IPC socket failed for pathname " << pathname
+      std::cout << "XXX1 pathname is " << pathname << std::endl;
+      try {
+      ARROW_LOG(ERROR) << "Connection to IPC2 socket failed for pathname " << pathname
                        << ", retrying " << num_retries << " times";
+      } catch (std::exception&e ) {
+	std::cout << "XXX: " << e.what() << std::endl;
+      }
     }
     /* Sleep for timeout milliseconds. */
     usleep(static_cast<int>(timeout * 1000));
   }
   /* If we could not connect to the socket, exit. */
-  if (*fd == -1) {
+  if (*fd < 0) {
     std::stringstream ss;
     ss << "Could not connect to socket " << pathname;
     return Status::IOError(ss.str());

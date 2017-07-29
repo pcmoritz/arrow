@@ -22,4 +22,4 @@ set -ex
 
 pushd python/manylinux1
 sudo docker build -t arrow-base-x86_64 -f Dockerfile-x86_64 .
-sudo docker run --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
+sudo docker run -t --shm-size=2g --rm -e PYARROW_PARALLEL=3 -v $PWD:/io arrow-base-x86_64 /io/build_arrow.sh
