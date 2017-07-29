@@ -80,7 +80,7 @@ for PYTHON in ${PYTHON_VERSIONS}; do
     echo "=== (${PYTHON}) Testing manylinux1 wheel ==="
     source /venv-test-${PYTHON}/bin/activate
     pip install repaired_wheels/*.whl
-    py.test --parquet /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
+    py.test --parquet -s /venv-test-${PYTHON}/lib/*/site-packages/pyarrow
     deactivate
 
     mv repaired_wheels/*.whl /io/dist
