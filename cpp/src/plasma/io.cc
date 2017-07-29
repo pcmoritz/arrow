@@ -164,6 +164,8 @@ Status ConnectIpcSocketRetry(const std::string& pathname, int num_retries,
       break;
     }
     if (num_attempts == 0) {
+      std::cout << "XXX pathname is " << pathname << std::endl;
+      std::cerr << "XXX pathname is " << pathname << std::endl;
       ARROW_LOG(ERROR) << "Connection to IPC socket failed for pathname " << pathname
                        << ", retrying " << num_retries << " times";
     }
