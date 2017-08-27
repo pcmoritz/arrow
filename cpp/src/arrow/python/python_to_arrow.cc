@@ -41,11 +41,6 @@
 
 constexpr int32_t kMaxRecursionDepth = 100;
 
-extern "C" {
-PyObject* pyarrow_serialize_callback = NULL;
-PyObject* pyarrow_deserialize_callback = NULL;
-}
-
 namespace arrow {
 namespace py {
 
@@ -341,28 +336,24 @@ Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result)
   return Status::OK();
 }
 
-void set_serialization_callbacks(PyObject* serialize_callback,
-                                 PyObject* deserialize_callback) {
-  pyarrow_serialize_callback = serialize_callback;
-  pyarrow_deserialize_callback = deserialize_callback;
-}
-
-Status CallCustomSerializationCallback(PyObject* elem, PyObject** serialized_object) {
-  RETURN_NOT_OK(CallCustomCallback(pyarrow_serialize_callback, elem, serialized_object));
+Status CallCustomSerializationCallback(const SerializationContext& context, PyObject* elem, PyObject** serialized_object) {
+  RETURN_NOT_OK(CallCustomCallback(context.serialize_callback, elem, serialized_object));
   if (!PyDict_Check(*serialized_object)) {
     return Status::TypeError("serialization callback must return a valid dictionary");
   }
   return Status::OK();
 }
 
-Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
+Status SerializeDict(const SerializationContext& context,
+                     std::vector<PyObject*> dicts, int32_t recursion_depth,
                      std::shared_ptr<Array>* out, std::vector<PyObject*>* tensors_out);
 
 Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
                       std::vector<PyObject*>* subdicts,
                       std::vector<PyObject*>* tensors_out);
 
-Status SerializeSequences(std::vector<PyObject*> sequences, int32_t recursion_depth,
+Status SerializeSequences(const SerializationContext& context,
+                          std::vector<PyObject*> sequences, int32_t recursion_depth,
                           std::shared_ptr<Array>* out,
                           std::vector<PyObject*>* tensors_out);
 
@@ -405,7 +396,8 @@ Status AppendScalar(PyObject* obj, SequenceBuilder* builder) {
   return builder->AppendInt64(value);
 }
 
-Status Append(PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* sublists,
+Status Append(const SerializationContext& context,
+              PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* sublists,
               std::vector<PyObject*>* subtuples, std::vector<PyObject*>* subdicts,
               std::vector<PyObject*>* tensors_out) {
   // The bool case must precede the int case (PyInt_Check passes for bools)
@@ -422,7 +414,7 @@ Status Append(PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* 
       // Attempt to serialize the object using the custom callback.
       PyObject* serialized_object;
       // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallCustomSerializationCallback(elem, &serialized_object));
+      RETURN_NOT_OK(CallCustomSerializationCallback(context, elem, &serialized_object));
       RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
       subdicts->push_back(serialized_object);
     }
@@ -470,14 +462,15 @@ Status Append(PyObject* elem, SequenceBuilder* builder, std::vector<PyObject*>* 
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
     // The reference count of serialized_object will be decremented in SerializeDict
-    RETURN_NOT_OK(CallCustomSerializationCallback(elem, &serialized_object));
+    RETURN_NOT_OK(CallCustomSerializationCallback(context, elem, &serialized_object));
     RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
     subdicts->push_back(serialized_object);
   }
   return Status::OK();
 }
 
-Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
+Status SerializeArray(const SerializationContext& context,
+                      PyArrayObject* array, SequenceBuilder* builder,
                       std::vector<PyObject*>* subdicts,
                       std::vector<PyObject*>* tensors_out) {
   int dtype = PyArray_TYPE(array);
@@ -499,7 +492,7 @@ Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
     default: {
       PyObject* serialized_object;
       // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallCustomSerializationCallback(reinterpret_cast<PyObject*>(array),
+      RETURN_NOT_OK(CallCustomSerializationCallback(context, reinterpret_cast<PyObject*>(array),
                                                     &serialized_object));
       RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
       subdicts->push_back(serialized_object);
@@ -508,7 +501,8 @@ Status SerializeArray(PyArrayObject* array, SequenceBuilder* builder,
   return Status::OK();
 }
 
-Status SerializeSequences(std::vector<PyObject*> sequences, int32_t recursion_depth,
+Status SerializeSequences(const SerializationContext& context,
+                          std::vector<PyObject*> sequences, int32_t recursion_depth,
                           std::shared_ptr<Array>* out,
                           std::vector<PyObject*>* tensors_out) {
   DCHECK(out);
@@ -525,26 +519,27 @@ Status SerializeSequences(std::vector<PyObject*> sequences, int32_t recursion_de
     ScopedRef item;
     while (item.reset(PyIter_Next(iterator.get())), item.get()) {
       RETURN_NOT_OK(
-          Append(item.get(), &builder, &sublists, &subtuples, &subdicts, tensors_out));
+          Append(context, item.get(), &builder, &sublists, &subtuples, &subdicts, tensors_out));
     }
   }
   std::shared_ptr<Array> list;
   if (sublists.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(sublists, recursion_depth + 1, &list, tensors_out));
+    RETURN_NOT_OK(SerializeSequences(context, sublists, recursion_depth + 1, &list, tensors_out));
   }
   std::shared_ptr<Array> tuple;
   if (subtuples.size() > 0) {
     RETURN_NOT_OK(
-        SerializeSequences(subtuples, recursion_depth + 1, &tuple, tensors_out));
+        SerializeSequences(context, subtuples, recursion_depth + 1, &tuple, tensors_out));
   }
   std::shared_ptr<Array> dict;
   if (subdicts.size() > 0) {
-    RETURN_NOT_OK(SerializeDict(subdicts, recursion_depth + 1, &dict, tensors_out));
+    RETURN_NOT_OK(SerializeDict(context, subdicts, recursion_depth + 1, &dict, tensors_out));
   }
   return builder.Finish(list.get(), tuple.get(), dict.get(), out);
 }
 
-Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
+Status SerializeDict(const SerializationContext& context,
+                     std::vector<PyObject*> dicts, int32_t recursion_depth,
                      std::shared_ptr<Array>* out, std::vector<PyObject*>* tensors_out) {
   DictBuilder result;
   if (recursion_depth >= kMaxRecursionDepth) {
@@ -558,36 +553,36 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
     Py_ssize_t pos = 0;
     while (PyDict_Next(dict, &pos, &key, &value)) {
       RETURN_NOT_OK(
-          Append(key, &result.keys(), &dummy, &key_tuples, &key_dicts, tensors_out));
+          Append(context, key, &result.keys(), &dummy, &key_tuples, &key_dicts, tensors_out));
       DCHECK_EQ(dummy.size(), 0);
-      RETURN_NOT_OK(Append(value, &result.vals(), &val_lists, &val_tuples, &val_dicts,
+      RETURN_NOT_OK(Append(context, value, &result.vals(), &val_lists, &val_tuples, &val_dicts,
                            tensors_out));
     }
   }
   std::shared_ptr<Array> key_tuples_arr;
   if (key_tuples.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(key_tuples, recursion_depth + 1, &key_tuples_arr,
+    RETURN_NOT_OK(SerializeSequences(context, key_tuples, recursion_depth + 1, &key_tuples_arr,
                                      tensors_out));
   }
   std::shared_ptr<Array> key_dicts_arr;
   if (key_dicts.size() > 0) {
     RETURN_NOT_OK(
-        SerializeDict(key_dicts, recursion_depth + 1, &key_dicts_arr, tensors_out));
+        SerializeDict(context, key_dicts, recursion_depth + 1, &key_dicts_arr, tensors_out));
   }
   std::shared_ptr<Array> val_list_arr;
   if (val_lists.size() > 0) {
     RETURN_NOT_OK(
-        SerializeSequences(val_lists, recursion_depth + 1, &val_list_arr, tensors_out));
+        SerializeSequences(context, val_lists, recursion_depth + 1, &val_list_arr, tensors_out));
   }
   std::shared_ptr<Array> val_tuples_arr;
   if (val_tuples.size() > 0) {
-    RETURN_NOT_OK(SerializeSequences(val_tuples, recursion_depth + 1, &val_tuples_arr,
+    RETURN_NOT_OK(SerializeSequences(context, val_tuples, recursion_depth + 1, &val_tuples_arr,
                                      tensors_out));
   }
   std::shared_ptr<Array> val_dict_arr;
   if (val_dicts.size() > 0) {
     RETURN_NOT_OK(
-        SerializeDict(val_dicts, recursion_depth + 1, &val_dict_arr, tensors_out));
+        SerializeDict(context, val_dicts, recursion_depth + 1, &val_dict_arr, tensors_out));
   }
   RETURN_NOT_OK(result.Finish(key_tuples_arr.get(), key_dicts_arr.get(),
                               val_list_arr.get(), val_tuples_arr.get(),
@@ -601,7 +596,7 @@ Status SerializeDict(std::vector<PyObject*> dicts, int32_t recursion_depth,
     if (PyDict_Contains(dict, py_type)) {
       // If the dictionary contains the key "_pytype_", then the user has to
       // have registered a callback.
-      if (pyarrow_serialize_callback == nullptr) {
+      if (context.serialize_callback == nullptr) {
         return Status::Invalid("No serialization callback set");
       }
       Py_XDECREF(dict);
@@ -617,12 +612,12 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
   return std::shared_ptr<RecordBatch>(new RecordBatch(schema, data->length(), {data}));
 }
 
-Status SerializeObject(PyObject* sequence, SerializedPyObject* out) {
+Status SerializeObject(const SerializationContext& context, PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
   std::vector<PyObject*> sequences = {sequence};
   std::shared_ptr<Array> array;
   std::vector<PyObject*> py_tensors;
-  RETURN_NOT_OK(SerializeSequences(sequences, 0, &array, &py_tensors));
+  RETURN_NOT_OK(SerializeSequences(context, sequences, 0, &array, &py_tensors));
   out->batch = MakeBatch(array);
   for (const auto& py_tensor : py_tensors) {
     std::shared_ptr<Tensor> arrow_tensor;
