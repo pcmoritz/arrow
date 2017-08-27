@@ -27,13 +27,12 @@
 #include "arrow/python/common.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
+#include "arrow/python/python_to_arrow.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace py {
-
-Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result);
 
 Status DeserializeTuple(std::shared_ptr<Array> array, int64_t start_idx, int64_t stop_idx,
                         PyObject* base,
@@ -68,7 +67,7 @@ Status DeserializeDict(const SerializationContext &context,
   }
   static PyObject* py_type = PyUnicode_FromString("_pytype_");
   if (PyDict_Contains(result.get(), py_type)) {
-    RETURN_NOT_OK(CallCustomCallback(context.deserialize_callback, result.get(), out));
+    RETURN_NOT_OK(context.CallDeserializeCallback(result.get(), out));
   } else {
     *out = result.release();
   }

@@ -44,9 +44,15 @@ struct ARROW_EXPORT SerializedPyObject {
   std::vector<std::shared_ptr<Tensor>> tensors;
 };
 
-struct ARROW_EXPORT SerializationContext {
-  PyObject* serialize_callback;
-  PyObject* deserialize_callback;
+class ARROW_EXPORT SerializationContext {
+ public:
+  SerializationContext(PyObject* serialize_callback, PyObject* deserialize_callback);
+  Status CallSerializeCallback(PyObject* value, PyObject** serialized_object) const;
+  Status CallDeserializeCallback(PyObject* value, PyObject** deserialized_object) const;
+  bool has_callbacks() const;
+ private:
+  PyObject* serialize_callback_;
+  PyObject* deserialize_callback_;
 };
 
 /// \brief Serialize Python sequence as a RecordBatch plus

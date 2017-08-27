@@ -336,12 +336,19 @@ Status CallCustomCallback(PyObject* callback, PyObject* elem, PyObject** result)
   return Status::OK();
 }
 
-Status CallCustomSerializationCallback(const SerializationContext& context, PyObject* elem, PyObject** serialized_object) {
-  RETURN_NOT_OK(CallCustomCallback(context.serialize_callback, elem, serialized_object));
+SerializationContext::SerializationContext(PyObject* serialize_callback, PyObject* deserialize_callback)
+   : serialize_callback_(serialize_callback), deserialize_callback_(deserialize_callback) {}
+
+Status SerializationContext::CallSerializeCallback(PyObject* value, PyObject** serialized_object) const {
+  RETURN_NOT_OK(CallCustomCallback(serialize_callback_, value, serialized_object));
   if (!PyDict_Check(*serialized_object)) {
     return Status::TypeError("serialization callback must return a valid dictionary");
   }
   return Status::OK();
+}
+
+bool SerializationContext::has_callbacks() const {
+  return serialize_callback_ && deserialize_callback_;
 }
 
 Status SerializeDict(const SerializationContext& context,
@@ -414,7 +421,7 @@ Status Append(const SerializationContext& context,
       // Attempt to serialize the object using the custom callback.
       PyObject* serialized_object;
       // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallCustomSerializationCallback(context, elem, &serialized_object));
+      RETURN_NOT_OK(context.CallSerializeCallback(elem, &serialized_object));
       RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
       subdicts->push_back(serialized_object);
     }
@@ -462,7 +469,7 @@ Status Append(const SerializationContext& context,
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
     // The reference count of serialized_object will be decremented in SerializeDict
-    RETURN_NOT_OK(CallCustomSerializationCallback(context, elem, &serialized_object));
+    RETURN_NOT_OK(context.CallSerializeCallback(elem, &serialized_object));
     RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
     subdicts->push_back(serialized_object);
   }
@@ -492,8 +499,8 @@ Status SerializeArray(const SerializationContext& context,
     default: {
       PyObject* serialized_object;
       // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallCustomSerializationCallback(context, reinterpret_cast<PyObject*>(array),
-                                                    &serialized_object));
+      RETURN_NOT_OK(context.CallSerializeCallback(reinterpret_cast<PyObject*>(array),
+                                                  &serialized_object));
       RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
       subdicts->push_back(serialized_object);
     }
@@ -596,7 +603,7 @@ Status SerializeDict(const SerializationContext& context,
     if (PyDict_Contains(dict, py_type)) {
       // If the dictionary contains the key "_pytype_", then the user has to
       // have registered a callback.
-      if (context.serialize_callback == nullptr) {
+      if (!context.has_callbacks()) {
         return Status::Invalid("No serialization callback set");
       }
       Py_XDECREF(dict);
