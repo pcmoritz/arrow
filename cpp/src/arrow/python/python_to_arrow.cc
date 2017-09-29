@@ -490,7 +490,16 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;
     // The reference count of serialized_object will be decremented in SerializeDict
-    RETURN_NOT_OK(CallSerializeCallback(context, elem, &serialized_object));
+    Status s = CallSerializeCallback(context, elem, &serialized_object);
+    // TODO(pcm): Document this!
+    if (!s.ok() && PyObject_Length(elem) != -1) {
+      PyErr_Clear();
+      RETURN_NOT_OK(builder->AppendList(PyObject_Length(elem)));
+      sublists->push_back(elem);
+      return Status::OK();
+    } else {
+      RETURN_NOT_OK(s);
+    }
     RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
     subdicts->push_back(serialized_object);
   }
