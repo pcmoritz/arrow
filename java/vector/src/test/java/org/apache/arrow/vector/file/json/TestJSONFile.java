@@ -89,7 +89,7 @@ public class TestJSONFile extends BaseFileTest {
     writer.close();
   }
 
-
+  /*
   @Test
   public void testWriteReadUnionJSON() throws IOException {
     File file = new File("target/mytest_write_union.json");
@@ -119,6 +119,7 @@ public class TestJSONFile extends BaseFileTest {
       }
     }
   }
+  */
 
   @Test
   public void testWriteReadDateTimeJSON() throws IOException {

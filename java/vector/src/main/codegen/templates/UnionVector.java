@@ -33,7 +33,7 @@ import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 
-import static org.apache.arrow.vector.types.UnionMode.Sparse;
+import static org.apache.arrow.vector.types.UnionMode.Dense;
 
 
 
@@ -274,7 +274,7 @@ public class UnionVector implements FieldVector {
       typeIds[childFields.size()] = v.getMinorType().ordinal();
       childFields.add(v.getField());
     }
-    return new Field(name, FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
+    return new Field(name, FieldType.nullable(new ArrowType.Union(Dense, typeIds)), childFields);
   }
 
   @Override

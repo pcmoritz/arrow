@@ -273,6 +273,7 @@ public class TestArrowFile extends BaseFileTest {
     }
   }
 
+  /*
   @Test
   public void testWriteReadUnion() throws IOException {
     File file = new File("target/mytest_write_union.arrow");
@@ -309,6 +310,7 @@ public class TestArrowFile extends BaseFileTest {
       validateUnionData(count, root);
     }
   }
+  */
 
   @Test
   public void testWriteReadTiny() throws IOException {
