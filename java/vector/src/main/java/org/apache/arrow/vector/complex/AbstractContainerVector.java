@@ -110,6 +110,6 @@ public abstract class AbstractContainerVector implements ValueVector {
   }
 
   public UnionVector addOrGetUnion(String name) {
-    return addOrGet(name, FieldType.nullable(new Union(UnionMode.Sparse, null)), UnionVector.class);
+    return addOrGet(name, FieldType.nullable(new Union(UnionMode.Dense, null)), UnionVector.class);
   }
 }

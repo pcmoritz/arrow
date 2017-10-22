@@ -20,7 +20,7 @@ package org.apache.arrow.vector.types;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
-import static org.apache.arrow.vector.types.UnionMode.Sparse;
+import static org.apache.arrow.vector.types.UnionMode.Dense;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;

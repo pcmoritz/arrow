@@ -44,7 +44,7 @@ import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.schema.ArrowFieldNode;
 
-import static org.apache.arrow.vector.types.UnionMode.Sparse;
+import static org.apache.arrow.vector.types.UnionMode.Dense;
 
 
 
@@ -380,7 +380,7 @@ public class UnionVector implements FieldVector {
     int[] typeIds = Arrays.copyOfRange(this.typeIds, 0, children.size());
 
     return new Field(name,
-        FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
+        FieldType.nullable(new ArrowType.Union(Dense, typeIds)), childFields);
   }
 
   @Override

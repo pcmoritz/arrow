@@ -74,7 +74,7 @@ public class TypeLayout {
           case Dense:
             vectors = asList(
                 // TODO: validate this
-                validityVector(),
+                // validityVector(),
                 typeVector(),
                 offsetVector() // offset to find the vector
             );
