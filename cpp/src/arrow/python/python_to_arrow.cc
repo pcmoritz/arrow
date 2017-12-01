@@ -403,6 +403,7 @@ Status SerializeDict(PyObject* context, std::vector<PyObject*> dicts,
                      SerializedPyObject* blobs_out);
 
 Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
+                      std::vector<PyObject*>* sublists,
                       std::vector<PyObject*>* subdicts, SerializedPyObject* blobs_out);
 
 Status SerializeSequences(PyObject* context, std::vector<PyObject*> sequences,
@@ -514,7 +515,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   } else if (PyArray_IsScalar(elem, Generic)) {
     RETURN_NOT_OK(AppendScalar(elem, builder));
   } else if (PyArray_Check(elem)) {
-    RETURN_NOT_OK(SerializeArray(context, reinterpret_cast<PyArrayObject*>(elem), builder,
+    RETURN_NOT_OK(SerializeArray(context, reinterpret_cast<PyArrayObject*>(elem), builder, sublists,
                                  subdicts, blobs_out));
   } else if (elem == Py_None) {
     RETURN_NOT_OK(builder->AppendNone());
@@ -537,7 +538,45 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
   return Status::OK();
 }
 
+Status ObjectArrayEntries(PyArrayObject* array, std::vector<PyObject*>* out) {
+  NpyIter* iter = NpyIter_New(array, NPY_ITER_READONLY |
+                           NPY_ITER_EXTERNAL_LOOP |
+                           NPY_ITER_REFS_OK,
+                     NPY_KEEPORDER, NPY_NO_CASTING,
+                     NULL);
+  if (iter == NULL) {
+    return Status::NotImplemented("ran out of space when creating the iterator");
+  }
+  NpyIter_IterNextFunc* iternext = NpyIter_GetIterNext(iter, NULL);
+  if (iternext == NULL) {
+    NpyIter_Deallocate(iter);
+    return Status::NotImplemented("could not get iter next function");
+  }
+
+  char** dataptr = NpyIter_GetDataPtrArray(iter);
+  npy_intp* strideptr = NpyIter_GetInnerStrideArray(iter);
+  npy_intp* innersizeptr = NpyIter_GetInnerLoopSizePtr(iter);
+
+  do {
+    /* Get the inner loop data/stride/count values */
+    PyObject* data = reinterpret_cast<PyObject*>(*dataptr);
+    npy_intp stride = *strideptr;
+    npy_intp count = *innersizeptr;
+    /* This is a typical inner loop for NPY_ITER_EXTERNAL_LOOP */
+    while (count--) {
+      out->push_back(data);
+      data += stride;
+    }
+    /* Increment the iterator to the next inner loop */
+} while(iternext(iter));
+
+  NpyIter_Deallocate(iter);
+
+  return Status::OK();
+}
+
 Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* builder,
+                      std::vector<PyObject*>* sublists,
                       std::vector<PyObject*>* subdicts, SerializedPyObject* blobs_out) {
   int dtype = PyArray_TYPE(array);
   switch (dtype) {
@@ -560,12 +599,8 @@ Status SerializeArray(PyObject* context, PyArrayObject* array, SequenceBuilder* 
       blobs_out->tensors.push_back(tensor);
     } break;
     default: {
-      PyObject* serialized_object;
-      // The reference count of serialized_object will be decremented in SerializeDict
-      RETURN_NOT_OK(CallSerializeCallback(context, reinterpret_cast<PyObject*>(array),
-                                          &serialized_object));
-      RETURN_NOT_OK(builder->AppendDict(PyDict_Size(serialized_object)));
-      subdicts->push_back(serialized_object);
+      builder->AppendList(PyArray_SIZE(array));
+      RETURN_NOT_OK(ObjectArrayEntries(array, sublists));
     }
   }
   return Status::OK();
