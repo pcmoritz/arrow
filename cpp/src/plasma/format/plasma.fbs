@@ -95,6 +95,8 @@ struct PlasmaObjectSpec {
   metadata_offset: ulong;
   // The size in bytes of the metadata.
   metadata_size: ulong;
+  // Device to create buffer on.
+  device_num: int;
 }
 
 table PlasmaCreateRequest {
@@ -104,6 +106,12 @@ table PlasmaCreateRequest {
   data_size: ulong;
   // The size of the object's metadata in bytes.
   metadata_size: ulong;
+  // Device to create buffer on.
+  device_num: int;
+}
+
+table CudaHandle {
+  handle: [ubyte];
 }
 
 table PlasmaCreateReply {
@@ -113,6 +121,8 @@ table PlasmaCreateReply {
   plasma_object: PlasmaObjectSpec;
   // Error that occurred for this call.
   error: PlasmaError;
+  // CUDA IPC Handle for objects on GPU.
+  ipc_handle: CudaHandle;
 }
 
 table PlasmaAbortRequest {
@@ -155,6 +165,8 @@ table PlasmaGetReply {
   // Plasma object information, in the same order as their IDs.
   plasma_objects: [PlasmaObjectSpec];
   // The number of elements in both object_ids and plasma_objects arrays must agree.
+  // The number of elements in both object_ids and plasma_objects arrays must agree.
+  handles: [CudaHandle];
 }
 
 table PlasmaReleaseRequest {

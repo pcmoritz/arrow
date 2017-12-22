@@ -55,6 +55,12 @@
 #include "plasma/io.h"
 #include "plasma/malloc.h"
 
+#ifdef PLASMA_GPU
+#include "arrow/gpu/cuda_api.h"
+
+using namespace arrow::gpu;
+#endif
+
 namespace plasma {
 
 extern "C" {
@@ -102,6 +108,7 @@ PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string dir
   store_info_.memory_capacity = system_memory;
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
+  CudaDeviceManager::GetInstance(&manager_);
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
@@ -140,7 +147,7 @@ void PlasmaStore::add_client_to_object_clients(ObjectTableEntry* entry, Client* 
 
 // Create a new object buffer in the hash table.
 int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
-                               int64_t metadata_size, Client* client,
+                               int64_t metadata_size, int device_num, Client* client,
                                PlasmaObject* result) {
   ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
   if (store_info_.objects.count(object_id) != 0) {
@@ -150,6 +157,13 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
   }
   // Try to evict objects until there is enough space.
   uint8_t* pointer;
+#ifdef PLASMA_GPU
+  std::shared_ptr<CudaBuffer> gpu_handle;
+  std::shared_ptr<CudaContext> context_;
+  if (device_num != 0) {
+    manager_->GetContext(device_num - 1, &context_);
+  }
+#endif
   do {
     // Allocate space for the new object. We use dlmemalign instead of dlmalloc
     // in order to align the allocated region to a 64-byte boundary. This is not
@@ -158,8 +172,15 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
     // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
-    pointer =
-        reinterpret_cast<uint8_t*>(dlmemalign(BLOCK_SIZE, data_size + metadata_size));
+    if (device_num == 0) {
+      pointer =
+          reinterpret_cast<uint8_t*>(dlmemalign(BLOCK_SIZE, data_size + metadata_size));
+    }
+#ifdef PLASMA_GPU
+    else {
+      context_->Allocate(data_size + metadata_size, &gpu_handle);
+    }
+#endif
     if (pointer == NULL) {
       // Tell the eviction policy how much space we need to create this object.
       std::vector<ObjectID> objects_to_evict;
@@ -173,12 +194,13 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
       }
     }
   } while (pointer == NULL);
-  int fd;
-  int64_t map_size;
-  ptrdiff_t offset;
-  get_malloc_mapinfo(pointer, &fd, &map_size, &offset);
-  assert(fd != -1);
-
+  int fd = -1;
+  int64_t map_size = 0;
+  ptrdiff_t offset = 0;
+  if (device_num == 0) {
+    get_malloc_mapinfo(pointer, &fd, &map_size, &offset);
+    assert(fd != -1);
+  }
   auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
   entry->object_id = object_id;
   entry->info.object_id = object_id.binary();
@@ -190,14 +212,21 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
   entry->map_size = map_size;
   entry->offset = offset;
   entry->state = PLASMA_CREATED;
-
+  entry->device_num = device_num;
   store_info_.objects[object_id] = std::move(entry);
+#ifdef PLASMA_GPU
+  if (device_num != 0) {
+    entry->gpu_handle = gpu_handle;
+    gpu_handle->ExportForIpc(&result->handle.ipc_handle); 
+  }
+#endif
   result->handle.store_fd = fd;
   result->handle.mmap_size = map_size;
   result->data_offset = offset;
   result->metadata_offset = offset + data_size;
   result->data_size = data_size;
   result->metadata_size = metadata_size;
+  result->device_num = device_num;
   // Notify the eviction policy that this object was created. This must be done
   // immediately before the call to add_client_to_object_clients so that the
   // eviction policy does not have an opportunity to evict the object.
@@ -211,12 +240,18 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(object != NULL);
   DCHECK(entry != NULL);
   DCHECK(entry->state == PLASMA_SEALED);
+#ifdef PLASMA_GPU
+  if (entry->device_num != 0) {
+    entry->gpu_handle->ExportForIpc(&object->handle.ipc_handle); 
+  }
+#endif
   object->handle.store_fd = entry->fd;
   object->handle.mmap_size = entry->map_size;
   object->data_offset = entry->offset;
   object->metadata_offset = entry->offset + entry->info.data_size;
   object->data_size = entry->info.data_size;
   object->metadata_size = entry->info.metadata_size;
+  object->device_num = entry->device_num;
 }
 
 void PlasmaStore::return_from_get(GetRequest* get_req) {
@@ -231,7 +266,7 @@ void PlasmaStore::return_from_get(GetRequest* get_req) {
     for (const auto& object_id : get_req->object_ids) {
       PlasmaObject& object = get_req->objects[object_id];
       // We use the data size to indicate whether the object is present or not.
-      if (object.data_size != -1) {
+      if (object.data_size != -1 && object.device_num == 0) {
         int error_code = send_fd(get_req->client->fd, object.handle.store_fd);
         // If we failed to send the file descriptor, loop until we have sent it
         // successfully. TODO(rkn): This is problematic for two reasons. First
@@ -603,10 +638,11 @@ Status PlasmaStore::process_message(Client* client) {
     case MessageType_PlasmaCreateRequest: {
       int64_t data_size;
       int64_t metadata_size;
+      int device_num;
       RETURN_NOT_OK(
-          ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size));
+          ReadCreateRequest(input, input_size, &object_id, &data_size, &metadata_size, &device_num));
       int error_code =
-          create_object(object_id, data_size, metadata_size, client, &object);
+          create_object(object_id, data_size, metadata_size, device_num, client, &object);
       HANDLE_SIGPIPE(SendCreateReply(client->fd, object_id, &object, error_code),
                      client->fd);
       if (error_code == PlasmaError_OK) {
