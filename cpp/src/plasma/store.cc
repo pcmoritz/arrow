@@ -213,13 +213,13 @@ int PlasmaStore::create_object(const ObjectID& object_id, int64_t data_size,
   entry->offset = offset;
   entry->state = PLASMA_CREATED;
   entry->device_num = device_num;
-  store_info_.objects[object_id] = std::move(entry);
 #ifdef PLASMA_GPU
   if (device_num != 0) {
-    entry->gpu_handle = gpu_handle;
-    gpu_handle->ExportForIpc(&result->handle.ipc_handle); 
+    gpu_handle->ExportForIpc(&entry->ipc_handle); 
+    result->handle.ipc_handle = entry->ipc_handle;
   }
 #endif
+  store_info_.objects[object_id] = std::move(entry);
   result->handle.store_fd = fd;
   result->handle.mmap_size = map_size;
   result->data_offset = offset;
@@ -242,7 +242,7 @@ void PlasmaObject_init(PlasmaObject* object, ObjectTableEntry* entry) {
   DCHECK(entry->state == PLASMA_SEALED);
 #ifdef PLASMA_GPU
   if (entry->device_num != 0) {
-    entry->gpu_handle->ExportForIpc(&object->handle.ipc_handle); 
+    object->handle.ipc_handle = entry->ipc_handle;
   }
 #endif
   object->handle.store_fd = entry->fd;
