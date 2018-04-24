@@ -113,6 +113,8 @@ cdef extern from "plasma/client.h" nogil:
         CStatus Transfer(const char* addr, int port,
                          const CUniqueID& object_id)
 
+        CStatus Info(const CUniqueID& object_id, c_int* object_status)
+
 
 cdef extern from "plasma/client.h" nogil:
 
@@ -531,6 +533,10 @@ cdef class PlasmaClient:
         with nogil:
             check_status(self.client.get()
                          .Transfer(addr.c_str(), port, object_id.data))
+
+    def info(self, ObjectID object_id):
+        with nogil:
+            check_status(self.client.get().Info(object_id))
 
     def fetch(self, object_ids):
         """
