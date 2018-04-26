@@ -119,14 +119,17 @@ TEST(PlasmaSerialization, SealRequest) {
   int fd = create_temp_file();
   ObjectID object_id1 = ObjectID::from_random();
   unsigned char digest1[kDigestSize];
+  bool release1 = true;
   memset(&digest1[0], 7, kDigestSize);
-  ARROW_CHECK_OK(SendSealRequest(fd, object_id1, &digest1[0]));
+  ARROW_CHECK_OK(SendSealRequest(fd, object_id1, &digest1[0], release1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType_PlasmaSealRequest);
   ObjectID object_id2;
   unsigned char digest2[kDigestSize];
-  ARROW_CHECK_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2[0]));
+  bool release2;
+  ARROW_CHECK_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2[0], &release2));
   ASSERT_EQ(object_id1, object_id2);
   ASSERT_EQ(memcmp(&digest1[0], &digest2[0], kDigestSize), 0);
+  ASSERT_EQ(release1, release2);
   close(fd);
 }
 

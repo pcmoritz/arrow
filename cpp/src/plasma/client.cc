@@ -772,13 +772,13 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   /// Send the seal request to Plasma.
   static unsigned char digest[kDigestSize];
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
-  RETURN_NOT_OK(SendSealRequest(store_conn_, object_id, &digest[0]));
+  return SendSealRequest(store_conn_, object_id, &digest[0], true);
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment
   // happened in plasma_create and was used to ensure that the object was not
   // released before the call to PlasmaClient::Seal.
-  return Release(object_id);
+  // return Release(object_id);
 }
 
 Status PlasmaClient::Impl::Abort(const ObjectID& object_id) {

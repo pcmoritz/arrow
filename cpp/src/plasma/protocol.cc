@@ -165,22 +165,23 @@ Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id) {
 
 // Seal messages.
 
-Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest) {
+Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest, bool release) {
   flatbuffers::FlatBufferBuilder fbb;
   auto digest_string = fbb.CreateString(reinterpret_cast<char*>(digest), kDigestSize);
   auto message =
-      CreatePlasmaSealRequest(fbb, fbb.CreateString(object_id.binary()), digest_string);
+      CreatePlasmaSealRequest(fbb, fbb.CreateString(object_id.binary()), digest_string, release);
   return PlasmaSend(sock, MessageType_PlasmaSealRequest, &fbb, message);
 }
 
 Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                       unsigned char* digest) {
+                       unsigned char* digest, bool* release) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<PlasmaSealRequest>(data);
   DCHECK(verify_flatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
   ARROW_CHECK(message->digest()->size() == kDigestSize);
   memcpy(digest, message->digest()->data(), kDigestSize);
+  *release = message->release();
   return Status::OK();
 }
 

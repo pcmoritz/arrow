@@ -735,8 +735,12 @@ Status PlasmaStore::process_message(Client* client) {
     } break;
     case MessageType_PlasmaSealRequest: {
       unsigned char digest[kDigestSize];
-      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
+      bool release;
+      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0], &release));
       seal_object(object_id, &digest[0]);
+      if (release) {
+        release_object(object_id, client);
+      }
     } break;
     case MessageType_PlasmaEvictRequest: {
       // This code path should only be used for testing.

@@ -148,6 +148,8 @@ table PlasmaSealRequest {
   object_id: string;
   // Hash of the object data.
   digest: string;
+  // Do we also want to release the object with the seal?
+  release: bool;
 }
 
 table PlasmaSealReply {
