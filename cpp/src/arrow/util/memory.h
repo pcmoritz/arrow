@@ -56,7 +56,7 @@ void parallel_memcopy(uint8_t* dst, const uint8_t* src, int64_t nbytes,
   //   threadpool[i] = std::thread(memcpy, dst + prefix + i * chunk_size,
   //                               left + i * chunk_size, chunk_size);
   // }
-  #pragma omp parallel for num_threads(8) if (runparallel)
+  #pragma omp parallel for num_threads(num_threads)
   for (int i = 0; i < num_threads; i++) {
     memcpy(dst + prefix + i * chunk_size, left + i * chunk_size, chunk_size);
   }
