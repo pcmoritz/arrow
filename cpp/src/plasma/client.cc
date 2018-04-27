@@ -847,7 +847,7 @@ Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
     return Status::PlasmaObjectNonexistent("Object not found");
   }
   // Compute the hash.
-  uint64_t hash = compute_object_hash(object_buffers[0]);
+  uint64_t hash = 0;
   memcpy(digest, &hash, sizeof(hash));
   return Status::OK();
 }
