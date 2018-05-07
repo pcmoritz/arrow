@@ -62,14 +62,13 @@ int warn_if_sigpipe(int status, int client_sock) {
  * @return The object info buffer. It is the caller's responsibility to free
  *         this buffer with "delete" after it has been used.
  */
-std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info) {
+std::vector<uint8_t> create_object_info_buffer(ObjectInfoT* object_info) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreateObjectInfo(fbb, object_info);
   fbb.Finish(message);
-  auto notification =
-      std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(int64_t) + fbb.GetSize()]);
-  *(reinterpret_cast<int64_t*>(notification.get())) = fbb.GetSize();
-  memcpy(notification.get() + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
+  auto notification = std::vector<uint8_t>(sizeof(int64_t) + fbb.GetSize());
+  *(reinterpret_cast<int64_t*>(notification.data())) = fbb.GetSize();
+  memcpy(notification.data() + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
   return notification;
 }
 

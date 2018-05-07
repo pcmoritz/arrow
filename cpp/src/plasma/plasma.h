@@ -31,6 +31,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include "plasma/compat.h"
 
@@ -184,7 +185,7 @@ ObjectTableEntry* get_object_table_entry(PlasmaStoreInfo* store_info,
 /// @return The errno set.
 int warn_if_sigpipe(int status, int client_sock);
 
-std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info);
+std::vector<uint8_t> create_object_info_buffer(ObjectInfoT* object_info);
 
 }  // namespace plasma
 
