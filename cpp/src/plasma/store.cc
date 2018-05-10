@@ -571,10 +571,10 @@ void PlasmaStore::send_notifications(int client_fd) {
   for (size_t i = 0; i < it->second.object_notifications.size(); ++i) {
     auto& notification = it->second.object_notifications.at(i);
     // Decode the length, which is the first bytes of the message.
-    int64_t size = *(reinterpret_cast<int64_t*>(notification.data()));
+    int64_t size = *(reinterpret_cast<int64_t*>(notification->data()));
 
     // Attempt to send a notification about this object ID.
-    ssize_t nbytes = send(client_fd, notification.data(), sizeof(int64_t) + size, 0);
+    ssize_t nbytes = send(client_fd, notification->data(), sizeof(int64_t) + size, 0);
     if (nbytes >= 0) {
       ARROW_CHECK(nbytes == static_cast<ssize_t>(sizeof(int64_t)) + size);
     } else if (nbytes == -1 &&
@@ -618,9 +618,9 @@ void PlasmaStore::send_notifications(int client_fd) {
 }
 
 void PlasmaStore::push_notification(ObjectInfoT* object_info) {
+  auto notification = create_object_info_buffer(object_info);
   for (auto& element : pending_notifications_) {
-    auto notification = create_object_info_buffer(object_info);
-    element.second.object_notifications.emplace_back(std::move(notification));
+    element.second.object_notifications.emplace_back(notification);
     send_notifications(element.first);
     // The notification gets freed in send_notifications when the notification
     // is sent over the socket.
