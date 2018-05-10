@@ -34,12 +34,6 @@ namespace plasma {
 
 struct GetRequest;
 
-struct NotificationQueue {
-  /// The object notifications for clients. We notify the client about the
-  /// objects in the order that the objects were sealed or deleted.
-  std::deque<std::shared_ptr<std::vector<uint8_t>>> object_notifications;
-};
-
 /// Contains all information that is associated with a Plasma store client.
 struct Client {
   explicit Client(int fd);
@@ -186,12 +180,6 @@ class PlasmaStore {
   /// waiting for the object to arrive.
   std::unordered_map<ObjectID, std::vector<GetRequest*>, UniqueIDHasher>
       object_get_requests_;
-  /// The pending notifications that have not been sent to subscribers because
-  /// the socket send buffers were full. This is a hash table from client file
-  /// descriptor to an array of object_ids to send to that client.
-  /// TODO(pcm): Consider putting this into the Client data structure and
-  /// reorganize the code slightly.
-  std::unordered_map<int, NotificationQueue> pending_notifications_;
 
   std::unordered_map<int, std::unique_ptr<Client>> connected_clients_;
 #ifdef PLASMA_GPU
