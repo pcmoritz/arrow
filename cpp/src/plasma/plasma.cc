@@ -66,8 +66,9 @@ std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = CreateObjectInfo(fbb, object_info);
   fbb.Finish(message);
-  auto notification =
-      std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(int64_t) + fbb.GetSize()]);
+  uint8_t[] ptr = new uint8_t[sizeof(int64_t) + fbb.GetSize()];
+  auto notification = std::unique_ptr<uint8_t[]>(ptr);
+  printf("ZZZ = %p\n", static_cast<void*>(ptr));
   printf("XXX = %p\n", static_cast<void*>(notification.get()));
   *(reinterpret_cast<int64_t*>(notification.get())) = fbb.GetSize();
   memcpy(notification.get() + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
