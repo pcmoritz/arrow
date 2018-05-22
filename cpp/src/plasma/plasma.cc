@@ -68,7 +68,7 @@ std::unique_ptr<uint8_t[]> create_object_info_buffer(ObjectInfoT* object_info) {
   fbb.Finish(message);
   auto notification =
       std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(int64_t) + fbb.GetSize()]);
-  std::cout << "XXX" << notification.get() << std::endl;
+  std::cout << "YYY = " << static_cast<void*>(notification.get()) << std::endl;
   *(reinterpret_cast<int64_t*>(notification.get())) = fbb.GetSize();
   memcpy(notification.get() + sizeof(int64_t), fbb.GetBufferPointer(), fbb.GetSize());
   return notification;

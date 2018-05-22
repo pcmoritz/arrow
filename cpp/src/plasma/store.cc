@@ -629,7 +629,7 @@ void PlasmaStore::send_notifications(int client_fd) {
 void PlasmaStore::push_notification(ObjectInfoT* object_info) {
   for (auto& element : pending_notifications_) {
     auto notification = create_object_info_buffer(object_info);
-    std::cout << "XXX" << notification.get() << std::endl;
+    std::cout << "XXX = " << static_cast<void*>(notification.get()) << std::endl;
     element.second.object_notifications.emplace_back(std::move(notification));
     send_notifications(element.first);
   }
