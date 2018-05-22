@@ -161,7 +161,7 @@ class PlasmaStore {
   /// @param client_fd The client file descriptor that is disconnected.
   void disconnect_client(int client_fd);
 
-  void send_notifications(int client_fd);
+  std::unordered_map<int, NotificationQueue>::iterator send_notifications(std::unordered_map<int, NotificationQueue>::iterator it);
 
   Status process_message(Client* client);
 
