@@ -582,7 +582,8 @@ if (ARROW_JEMALLOC)
   # We only use a vendored jemalloc as we want to control its version.
   # Also our build of jemalloc is specially prefixed so that it will not
   # conflict with the default allocator as well as other jemalloc
-  # installations.
+  # installations. In addition, the user might want to specify
+  # additional configure flags via ARROW_JEMALLOC_BUILD_FLAGS.
   # find_package(jemalloc)
 
   set(ARROW_JEMALLOC_USE_SHARED OFF)
@@ -596,7 +597,7 @@ if (ARROW_JEMALLOC)
   ExternalProject_Add(jemalloc_ep
     URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
     PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls"
+    CONFIGURE_COMMAND ./autogen.sh "--prefix=${JEMALLOC_PREFIX}" "--with-jemalloc-prefix=je_arrow_" "--with-private-namespace=je_arrow_private_" "--disable-tls" "${ARROW_JEMALLOC_BUILD_FLAGS}"
     ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE}
