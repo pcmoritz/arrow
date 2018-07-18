@@ -161,42 +161,9 @@ Status SendEvictReply(int sock, int64_t num_bytes);
 
 Status ReadEvictReply(uint8_t* data, size_t size, int64_t& num_bytes);
 
-/* Plasma Fetch Remote message functions. */
-
-Status SendFetchRequest(int sock, const ObjectID* object_ids, int64_t num_objects);
-
-Status ReadFetchRequest(uint8_t* data, size_t size, std::vector<ObjectID>& object_ids);
-
-/* Plasma Wait message functions. */
-
-Status SendWaitRequest(int sock, ObjectRequest object_requests[], int64_t num_requests,
-                       int num_ready_objects, int64_t timeout_ms);
-
-Status ReadWaitRequest(uint8_t* data, size_t size, ObjectRequestMap& object_requests,
-                       int64_t* timeout_ms, int* num_ready_objects);
-
-Status SendWaitReply(int sock, const ObjectRequestMap& object_requests,
-                     int num_ready_objects);
-
-Status ReadWaitReply(uint8_t* data, size_t size, ObjectRequest object_requests[],
-                     int* num_ready_objects);
-
 /* Plasma Subscribe message functions. */
 
 Status SendSubscribeRequest(int sock);
-
-/* Data messages. */
-
-Status SendDataRequest(int sock, ObjectID object_id, const char* address, int port);
-
-Status ReadDataRequest(uint8_t* data, size_t size, ObjectID* object_id, char** address,
-                       int* port);
-
-Status SendDataReply(int sock, ObjectID object_id, int64_t object_size,
-                     int64_t metadata_size);
-
-Status ReadDataReply(uint8_t* data, size_t size, ObjectID* object_id,
-                     int64_t* object_size, int64_t* metadata_size);
 
 }  // namespace plasma
 

@@ -200,17 +200,6 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Disconnect();
 
-  Status Fetch(int num_object_ids, const ObjectID* object_ids);
-
-  Status Wait(int64_t num_object_requests, ObjectRequest* object_requests,
-              int num_ready_objects, int64_t timeout_ms, int* num_objects_ready);
-
-  Status Transfer(const char* addr, int port, const ObjectID& object_id);
-
-  Status Info(const ObjectID& object_id, int* object_status);
-
-  int get_manager_fd() const;
-
   Status FlushReleaseHistory();
 
   bool IsInUse(const ObjectID& object_id);
@@ -935,74 +924,6 @@ Status PlasmaClient::Impl::Disconnect() {
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::Transfer(const char* address, int port,
-                                    const ObjectID& object_id) {
-  return SendDataRequest(manager_conn_, object_id, address, port);
-}
-
-Status PlasmaClient::Impl::Fetch(int num_object_ids, const ObjectID* object_ids) {
-  ARROW_CHECK(manager_conn_ >= 0);
-  return SendFetchRequest(manager_conn_, object_ids, num_object_ids);
-}
-
-int PlasmaClient::Impl::get_manager_fd() const { return manager_conn_; }
-
-Status PlasmaClient::Impl::Info(const ObjectID& object_id, int* object_status) {
-  ARROW_CHECK(manager_conn_ >= 0);
-
-  RETURN_NOT_OK(SendStatusRequest(manager_conn_, &object_id, 1));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType::PlasmaStatusReply, &buffer));
-  ObjectID id;
-  RETURN_NOT_OK(ReadStatusReply(buffer.data(), buffer.size(), &id, object_status, 1));
-  ARROW_CHECK(object_id == id);
-  return Status::OK();
-}
-
-Status PlasmaClient::Impl::Wait(int64_t num_object_requests,
-                                ObjectRequest* object_requests, int num_ready_objects,
-                                int64_t timeout_ms, int* num_objects_ready) {
-  ARROW_CHECK(manager_conn_ >= 0);
-  ARROW_CHECK(num_object_requests > 0);
-  ARROW_CHECK(num_ready_objects > 0);
-  ARROW_CHECK(num_ready_objects <= num_object_requests);
-
-  for (int i = 0; i < num_object_requests; ++i) {
-    ARROW_CHECK(object_requests[i].type == ObjectRequestType::PLASMA_QUERY_LOCAL ||
-                object_requests[i].type == ObjectRequestType::PLASMA_QUERY_ANYWHERE);
-  }
-
-  RETURN_NOT_OK(SendWaitRequest(manager_conn_, object_requests, num_object_requests,
-                                num_ready_objects, timeout_ms));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(PlasmaReceive(manager_conn_, MessageType::PlasmaWaitReply, &buffer));
-  RETURN_NOT_OK(
-      ReadWaitReply(buffer.data(), buffer.size(), object_requests, &num_ready_objects));
-
-  *num_objects_ready = 0;
-  for (int i = 0; i < num_object_requests; ++i) {
-    ObjectRequestType type = object_requests[i].type;
-    fb::ObjectStatus status = object_requests[i].status;
-    switch (type) {
-      case ObjectRequestType::PLASMA_QUERY_LOCAL:
-        if (status == fb::ObjectStatus::Local) {
-          *num_objects_ready += 1;
-        }
-        break;
-      case ObjectRequestType::PLASMA_QUERY_ANYWHERE:
-        if (status == fb::ObjectStatus::Local || status == fb::ObjectStatus::Remote) {
-          *num_objects_ready += 1;
-        } else {
-          ARROW_CHECK(status == fb::ObjectStatus::Nonexistent);
-        }
-        break;
-      default:
-        ARROW_LOG(FATAL) << "This code should be unreachable.";
-    }
-  }
-  return Status::OK();
-}
-
 // ----------------------------------------------------------------------
 // PlasmaClient
 
@@ -1069,27 +990,6 @@ Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_
 }
 
 Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
-
-Status PlasmaClient::Fetch(int num_object_ids, const ObjectID* object_ids) {
-  return impl_->Fetch(num_object_ids, object_ids);
-}
-
-Status PlasmaClient::Wait(int64_t num_object_requests, ObjectRequest* object_requests,
-                          int num_ready_objects, int64_t timeout_ms,
-                          int* num_objects_ready) {
-  return impl_->Wait(num_object_requests, object_requests, num_ready_objects, timeout_ms,
-                     num_objects_ready);
-}
-
-Status PlasmaClient::Transfer(const char* addr, int port, const ObjectID& object_id) {
-  return impl_->Transfer(addr, port, object_id);
-}
-
-Status PlasmaClient::Info(const ObjectID& object_id, int* object_status) {
-  return impl_->Info(object_id, object_status);
-}
-
-int PlasmaClient::get_manager_fd() const { return impl_->get_manager_fd(); }
 
 Status PlasmaClient::FlushReleaseHistory() { return impl_->FlushReleaseHistory(); }
 
