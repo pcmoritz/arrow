@@ -186,7 +186,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Abort(const ObjectID& object_id);
 
-  Status Seal(const ObjectID& object_id);
+  Status Seal(const ObjectID& object_id, bool compute_hash = true);
 
   Status Delete(const std::vector<ObjectID>& object_ids);
 
@@ -772,7 +772,7 @@ uint64_t PlasmaClient::Impl::ComputeObjectHash(const ObjectBuffer& obj_buffer) {
   return XXH64_digest(&hash_state);
 }
 
-Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
+Status PlasmaClient::Impl::Seal(const ObjectID& object_id, bool compute_hash) {
   // Make sure this client has a reference to the object before sending the
   // request to Plasma.
   auto object_entry = objects_in_use_.find(object_id);
@@ -787,8 +787,10 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
 
   object_entry->second->is_sealed = true;
   /// Send the seal request to Plasma.
-  static unsigned char digest[kDigestSize];
-  RETURN_NOT_OK(Hash(object_id, &digest[0]));
+  static unsigned char digest[kDigestSize] = {0};
+  if (compute_hash) {
+    RETURN_NOT_OK(Hash(object_id, &digest[0]));
+  }
   RETURN_NOT_OK(SendSealRequest(store_conn_, object_id, &digest[0]));
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
