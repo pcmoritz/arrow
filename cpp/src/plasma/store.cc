@@ -705,6 +705,17 @@ void PlasmaStore::SubscribeToUpdates(Client* client) {
   }
 }
 
+void PlasmaStore::PrintMetrics() {
+  if (num_requests_ % 100 == 0) {
+    ARROW_LOG(INFO) << "Metrics:";
+    ARROW_LOG(INFO) << "Object table size: " << store_info_.objects.size();
+    ARROW_LOG(INFO) << "Object get request table: " << object_get_requests_.size();
+    ARROW_LOG(INFO) << "Input buffer size: " << input_buffer_.size();
+    ARROW_LOG(INFO) << "Pending notification size: " << pending_notifications_.size();
+    ARROW_LOG(INFO) << "Deletion cache size: " << deletion_cache_.size();
+  }
+}
+
 Status PlasmaStore::ProcessMessage(Client* client) {
   fb::MessageType type;
   Status s = ReadMessage(client->fd, &type, &input_buffer_);
@@ -712,6 +723,8 @@ Status PlasmaStore::ProcessMessage(Client* client) {
 
   uint8_t* input = input_buffer_.data();
   size_t input_size = input_buffer_.size();
+  num_requests_ += 1;
+  PrintMetrics();
   ObjectID object_id;
   PlasmaObject object;
   // TODO(pcm): Get rid of the following.

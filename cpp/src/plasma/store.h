@@ -188,6 +188,8 @@ class PlasmaStore {
 
   int RemoveFromClientObjectIds(ObjectTableEntry* entry, Client* client);
 
+  void PrintMetrics();
+
   /// Event loop of the plasma store.
   EventLoop* loop_;
   /// The plasma store information, including the object tables, that is exposed
@@ -214,6 +216,9 @@ class PlasmaStore {
 #ifdef PLASMA_GPU
   arrow::gpu::CudaDeviceManager* manager_;
 #endif
+
+  /// How many requests the store has been processing so far.
+  int64_t num_requests_;
 };
 
 }  // namespace plasma
