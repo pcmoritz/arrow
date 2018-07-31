@@ -45,6 +45,8 @@ class LRUCache {
   int64_t ChooseObjectsToEvict(int64_t num_bytes_required,
                                std::vector<ObjectID>* objects_to_evict);
 
+  int64_t size() { return item_map_.size(); }
+
  private:
   /// A doubly-linked list containing the items in the cache and
   /// their sizes in LRU order.
@@ -124,6 +126,8 @@ class EvictionPolicy {
   ///
   /// @param object_id The ID of the object that is now being used.
   void RemoveObject(const ObjectID& object_id);
+
+  int64_t size() { return cache_.size(); }
 
  private:
   /// The amount of memory (in bytes) currently being used.

@@ -713,6 +713,7 @@ void PlasmaStore::PrintMetrics() {
     ARROW_LOG(INFO) << "Input buffer size: " << input_buffer_.size();
     ARROW_LOG(INFO) << "Pending notification size: " << pending_notifications_.size();
     ARROW_LOG(INFO) << "Deletion cache size: " << deletion_cache_.size();
+    ARROW_LOG(INFO) << "Number of objects in LRU cache: " << eviction_policy_.size();
   }
 }
 
