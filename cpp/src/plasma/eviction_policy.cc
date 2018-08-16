@@ -61,6 +61,7 @@ int64_t EvictionPolicy::ChooseObjectsToEvict(int64_t num_bytes_required,
   }
   // Update the number of bytes used.
   memory_used_ -= bytes_evicted;
+  ARROW_LOG(INFO) << "[ChooseObjectsToEvict] memory_used_ = " << memory_used_ << ", bytes_evicted = " << bytes_evicted;
   ARROW_CHECK(memory_used_ >= 0);
   return bytes_evicted;
 }
