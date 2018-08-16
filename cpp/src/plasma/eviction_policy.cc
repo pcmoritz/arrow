@@ -71,6 +71,7 @@ void EvictionPolicy::ObjectCreated(const ObjectID& object_id) {
   int64_t size = entry->data_size + entry->metadata_size;
   memory_used_ += size;
   ARROW_CHECK(memory_used_ <= store_info_->memory_capacity);
+  ARROW_LOG(INFO) << "[ObjectCreated] memory_used_ = " << memory_used_ << ", size = " << size;
 }
 
 bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_to_evict) {
@@ -85,6 +86,7 @@ bool EvictionPolicy::RequireSpace(int64_t size, std::vector<ObjectID>* objects_t
   ARROW_LOG(INFO) << "There is not enough space to create this object, so evicting "
                   << objects_to_evict->size() << " objects to free up "
                   << num_bytes_evicted << " bytes.";
+  ARROW_LOG(INFO) << "memory_used_ = " << memory_used_;
   return num_bytes_evicted >= required_space && num_bytes_evicted > 0;
 }
 
@@ -109,6 +111,7 @@ void EvictionPolicy::RemoveObject(const ObjectID& object_id) {
   int64_t size = entry->data_size + entry->metadata_size;
   ARROW_CHECK(memory_used_ >= size);
   memory_used_ -= size;
+  ARROW_LOG(INFO) << "[RemoveObject] memory_used_ = " << memory_used_ << ", size = " << size;
 }
 
 }  // namespace plasma
