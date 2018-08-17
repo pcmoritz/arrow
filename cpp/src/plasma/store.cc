@@ -74,6 +74,7 @@ void* dlmalloc(size_t bytes);
 void* dlmemalign(size_t alignment, size_t bytes);
 void dlfree(void* mem);
 size_t dlmalloc_set_footprint_limit(size_t bytes);
+void* fake_mmap(size_t size);
 }
 
 struct GetRequest {
