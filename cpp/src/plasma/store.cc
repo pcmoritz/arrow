@@ -167,7 +167,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   }
 #endif
   if (data_size + metadata_size > 1000000) {
-    pointer = fake_mmap(data_size + metadata_size);
+    pointer = reinterpret_cast<uint8_t*>(fake_mmap(data_size + metadata_size));
   } else {
     while (true) {
       // Allocate space for the new object. We use dlmemalign instead of dlmalloc
