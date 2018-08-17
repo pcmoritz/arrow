@@ -165,36 +165,40 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
     DCHECK_OK(manager_->GetContext(device_num - 1, &context_));
   }
 #endif
-  while (true) {
-    // Allocate space for the new object. We use dlmemalign instead of dlmalloc
-    // in order to align the allocated region to a 64-byte boundary. This is not
-    // strictly necessary, but it is an optimization that could speed up the
-    // computation of a hash of the data (see compute_object_hash_parallel in
-    // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
-    // it is not guaranteed that the corresponding pointer in the client will be
-    // 64-byte aligned, but in practice it often will be.
-    if (device_num == 0) {
-      pointer =
-          reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
-      if (pointer == nullptr) {
-        // Tell the eviction policy how much space we need to create this object.
-        std::vector<ObjectID> objects_to_evict;
-        bool success =
-            eviction_policy_.RequireSpace(data_size + metadata_size, &objects_to_evict);
-        DeleteObjects(objects_to_evict);
-        // Return an error to the client if not enough space could be freed to
-        // create the object.
-        if (!success) {
-          return PlasmaError::OutOfMemory;
+  if (data_size + metadata_size > 1000000) {
+    pointer = fake_mmap(data_size + metadata_size);
+  } else {
+    while (true) {
+      // Allocate space for the new object. We use dlmemalign instead of dlmalloc
+      // in order to align the allocated region to a 64-byte boundary. This is not
+      // strictly necessary, but it is an optimization that could speed up the
+      // computation of a hash of the data (see compute_object_hash_parallel in
+      // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
+      // it is not guaranteed that the corresponding pointer in the client will be
+      // 64-byte aligned, but in practice it often will be.
+      if (device_num == 0) {
+        pointer =
+            reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
+        if (pointer == nullptr) {
+          // Tell the eviction policy how much space we need to create this object.
+          std::vector<ObjectID> objects_to_evict;
+          bool success =
+              eviction_policy_.RequireSpace(data_size + metadata_size, &objects_to_evict);
+          DeleteObjects(objects_to_evict);
+          // Return an error to the client if not enough space could be freed to
+          // create the object.
+          if (!success) {
+            return PlasmaError::OutOfMemory;
+          }
+        } else {
+          break;
         }
       } else {
-        break;
-      }
-    } else {
 #ifdef PLASMA_GPU
-      DCHECK_OK(context_->Allocate(data_size + metadata_size, &gpu_handle));
-      break;
+        DCHECK_OK(context_->Allocate(data_size + metadata_size, &gpu_handle));
+        break;
 #endif
+      }
     }
   }
   int fd = -1;
