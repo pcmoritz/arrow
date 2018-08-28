@@ -29,6 +29,7 @@ namespace plasma {
 
 using arrow::Status;
 
+/*
 UniqueID UniqueID::from_random() {
   UniqueID id;
   uint8_t* data = id.mutable_data();
@@ -44,6 +45,7 @@ UniqueID UniqueID::from_random() {
   }
   return id;
 }
+*/
 
 UniqueID UniqueID::from_binary(const std::string& binary) {
   UniqueID id;
