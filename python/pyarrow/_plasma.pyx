@@ -28,6 +28,7 @@ from cpython.pycapsule cimport *
 
 import collections
 import pyarrow
+import random
 
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
@@ -169,8 +170,9 @@ cdef class ObjectID:
 
     @staticmethod
     def from_random():
-        cdef CUniqueID data = CUniqueID.from_random()
-        return ObjectID(data.binary())
+        random_id = bytes(bytearray(
+            random.getrandbits(8) for _ in range(20)))
+        return ObjectID(random_id)
 
 
 cdef class ObjectNotAvailable:
