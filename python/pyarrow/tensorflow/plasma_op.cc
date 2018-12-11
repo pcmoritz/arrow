@@ -165,7 +165,7 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
 #ifdef GOOGLE_CUDA
         auto orig_stream = context->op_device_context()->stream();
         auto stream_executor = orig_stream->parent();
-        CHECK(stream_executor->HostMemoryUnregister(static_cast<void*>(data)));
+        stream_executor->HostMemoryUnregister(static_cast<void*>(data));
 #endif
       }
       context->SetStatus(tensorflow::Status::OK());
@@ -190,8 +190,8 @@ class TensorToPlasmaOp : public tf::AsyncOpKernel {
       // NOTE(zongheng): this is critical of getting good performance out of D2H
       // async memcpy.  Under the hood it performs cuMemHostRegister(), see:
       // http://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__MEM.html#group__CUDA__MEM_1gf0a9fe11544326dabd743b7aa6b54223
-      CHECK(stream_executor->HostMemoryRegister(static_cast<void*>(data),
-                                                static_cast<tf::uint64>(total_bytes)));
+      stream_executor->HostMemoryRegister(static_cast<void*>(data),
+                                          static_cast<tf::uint64>(total_bytes));
 
       {
         tf::mutex_lock l(d2h_stream_mu);
@@ -309,8 +309,8 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
 #ifdef GOOGLE_CUDA
         auto orig_stream = context->op_device_context()->stream();
         auto stream_executor = orig_stream->parent();
-        CHECK(stream_executor->HostMemoryUnregister(
-            const_cast<void*>(static_cast<const void*>(plasma_data))));
+        stream_executor->HostMemoryUnregister(
+            const_cast<void*>(static_cast<const void*>(plasma_data)));
 #endif
       }
       done();
@@ -337,9 +337,9 @@ class PlasmaToTensorOp : public tf::AsyncOpKernel {
       }
 
       // Important.  See note in T2P op.
-      CHECK(stream_executor->HostMemoryRegister(
+      stream_executor->HostMemoryRegister(
           const_cast<void*>(static_cast<const void*>(plasma_data)),
-          static_cast<tf::uint64>(size_in_bytes)));
+          static_cast<tf::uint64>(size_in_bytes));
 
       perftools::gputools::DeviceMemoryBase wrapped_dst(
           reinterpret_cast<void*>(const_cast<char*>(output_tensor->tensor_data().data())));
