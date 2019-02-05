@@ -91,6 +91,7 @@ static ptrdiff_t pointer_distance(void const* pfrom, void const* pto) {
 int create_buffer(int64_t size) {
   int fd;
   std::string file_template = plasma::plasma_config->directory;
+  ARROW_LOG(INFO) << "create_buffer with " << size;
 #ifdef _WIN32
   if (!CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
                          (DWORD)((uint64_t)size >> (CHAR_BIT * sizeof(DWORD))),
