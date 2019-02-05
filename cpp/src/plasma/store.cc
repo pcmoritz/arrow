@@ -902,18 +902,6 @@ class PlasmaStoreRunner {
     store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled));
     plasma_config = store_->GetPlasmaStoreInfo();
 
-    // We are using a single memory-mapped file by mallocing and freeing a single
-    // large amount of space up front. According to the documentation,
-    // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
-    // bookkeeping.
-    void* pointer = plasma::PlasmaAllocator::Memalign(
-        kBlockSize, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-    ARROW_CHECK(pointer != nullptr);
-    // This will unmap the file, but the next one created will be as large
-    // as this one (this is an implementation detail of dlmalloc).
-    plasma::PlasmaAllocator::Free(
-        pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
-
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
     ARROW_CHECK(socket >= 0);
