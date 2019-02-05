@@ -58,6 +58,8 @@ include(FindPkgConfig)
 
 include(GNUInstallDirs)
 
+cmake_policy(SET CMP0025 NEW)
+
 # Compatibility with CMake 3.1
 if(POLICY CMP0054)
   # http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
@@ -309,8 +311,12 @@ Note that this requires linking Boost statically"
 
     set(BROTLI_MSVC_STATIC_LIB_SUFFIX "-static" CACHE STRING
       "Brotli static lib suffix used on Windows with MSVC (default -static)")
+    set(PROTOBUF_MSVC_STATIC_LIB_SUFFIX "" CACHE STRING
+      "Protobuf static lib suffix used on Windows with MSVC (default is empty string)")
+    set(RE2_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
+      "re2 static lib suffix used on Windows with MSVC (default is _static)")
     set(SNAPPY_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
-      "Snappy static lib suffix used on Windows with MSVC (default is empty string)")
+      "Snappy static lib suffix used on Windows with MSVC (default is _static)")
     set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
       "Lz4 static lib suffix used on Windows with MSVC (default _static)")
     set(ZSTD_MSVC_STATIC_LIB_SUFFIX "_static" CACHE STRING
@@ -796,8 +802,9 @@ set(ARROW_TEST_STATIC_LINK_LIBS
   arrow_testing_static
   arrow_static
   ${ARROW_LINK_LIBS}
-  ${GTEST_MAIN_LIBRARY}
-  ${GTEST_LIBRARY})
+  ${GTEST_LIBRARY}
+  ${GMOCK_MAIN_LIBRARY}
+  ${GMOCK_LIBRARY})
 
 set(ARROW_TEST_SHARED_LINK_LIBS
   arrow_testing_shared
@@ -807,8 +814,9 @@ set(ARROW_TEST_SHARED_LINK_LIBS
   ${BOOST_SYSTEM_LIBRARY}
   ${BOOST_FILESYSTEM_LIBRARY}
   ${BOOST_REGEX_LIBRARY}
-  ${GTEST_MAIN_LIBRARY}
-  ${GTEST_LIBRARY})
+  ${GTEST_LIBRARY}
+  ${GMOCK_MAIN_LIBRARY}
+  ${GMOCK_LIBRARY})
 
 if(NOT MSVC)
   set(ARROW_TEST_SHARED_LINK_LIBS
