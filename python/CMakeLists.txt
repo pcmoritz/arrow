@@ -59,6 +59,7 @@ endif()
 # Top level cmake dir
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   option(PYARROW_BUILD_CUDA "Build the PyArrow CUDA support" OFF)
+  option(PYARROW_BUILD_COMPUTE "Build the PyArrow Compute integration" OFF)
   option(PYARROW_BUILD_FLIGHT "Build the PyArrow Flight integration" OFF)
   option(PYARROW_BUILD_GANDIVA "Build the PyArrow Gandiva integration" OFF)
   option(PYARROW_BUILD_PARQUET "Build the PyArrow Parquet integration" OFF)
@@ -483,6 +484,10 @@ endif()
 if(PYARROW_BUILD_ORC)
   # ORC
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
+endif()
+
+if(PYARROW_BUILD_COMPUTE)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} compute)
 endif()
 
 # Flight

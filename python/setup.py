@@ -99,6 +99,7 @@ class build_ext(_build_ext):
                      ('boost-namespace=', None,
                       'namespace of boost (default: boost)'),
                      ('with-cuda', None, 'build the Cuda extension'),
+                     ('with-compute', None, 'build the Compute extension'),
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
@@ -137,6 +138,8 @@ class build_ext(_build_ext):
 
         self.with_cuda = strtobool(
             os.environ.get('PYARROW_WITH_CUDA', '0'))
+        self.with_compute = strtobool(
+            os.environ.get('PYARROW_WITH_COMPUTE', '0'))
         self.with_flight = strtobool(
             os.environ.get('PYARROW_WITH_FLIGHT', '0'))
         self.with_parquet = strtobool(
@@ -164,6 +167,7 @@ class build_ext(_build_ext):
         'lib',
         '_csv',
         '_cuda',
+        'compute',
         '_flight',
         '_parquet',
         '_orc',
@@ -204,6 +208,8 @@ class build_ext(_build_ext):
                 cmake_options += ['-G', self.cmake_generator]
             if self.with_cuda:
                 cmake_options.append('-DPYARROW_BUILD_CUDA=on')
+            if self.with_compute:
+                cmake_options.append('-DPYARROW_BUILD_COMPUTE=on')
             if self.with_flight:
                 cmake_options.append('-DPYARROW_BUILD_FLIGHT=on')
             if self.with_parquet:
@@ -350,6 +356,8 @@ class build_ext(_build_ext):
                 move_shared_libs(build_prefix, build_lib, "arrow_python")
                 if self.with_cuda:
                     move_shared_libs(build_prefix, build_lib, "arrow_gpu")
+                if self.with_compute:
+                    move_shared_libs(build_prefix, build_lib, "arrow_compute")
                 if self.with_flight:
                     move_shared_libs(build_prefix, build_lib, "arrow_flight")
                 if self.with_plasma:
@@ -395,6 +403,8 @@ class build_ext(_build_ext):
         if name == '_flight' and not self.with_flight:
             return True
         if name == '_cuda' and not self.with_cuda:
+            return True
+        if name == 'compute' and not self.with_compute:
             return True
         if name == 'gandiva' and not self.with_gandiva:
             return True
