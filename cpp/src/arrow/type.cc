@@ -569,6 +569,10 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
+std::shared_ptr<DataType> chunked_(const std::shared_ptr<DataType>& chunk_type) {
+  return std::make_shared<ChunkedType>(chunk_type);
+}
+
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
                                  const std::vector<uint8_t>& type_codes,
                                  UnionMode::type mode) {

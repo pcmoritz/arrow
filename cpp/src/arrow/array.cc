@@ -724,6 +724,152 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
 }
 
 // ----------------------------------------------------------------------
+// ChunkedArray and Column methods
+
+ChunkedArray::ChunkedArray(const std::shared_ptr<ArrayData>& data) {
+  DCHECK_EQ(data->type->id(), Type::CHUNKED);
+  SetData(data);
+}
+
+ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
+  length_ = 0;
+  null_count_ = 0;
+  DCHECK_GT(chunks.size(), 0)
+      << "cannot construct ChunkedArray from empty vector and omitted type";
+  type_ = chunks[0]->type();
+  for (const std::shared_ptr<Array>& chunk : chunks) {
+    length_ += chunk->length();
+    null_count_ += chunk->null_count();
+  }
+}
+
+ChunkedArray::ChunkedArray(const ArrayVector& chunks,
+                           const std::shared_ptr<DataType>& type)
+    : chunks_(chunks), type_(type) {
+  length_ = 0;
+  null_count_ = 0;
+  for (const std::shared_ptr<Array>& chunk : chunks) {
+    length_ += chunk->length();
+    null_count_ += chunk->null_count();
+  }
+}
+
+bool ChunkedArray::Equals(const ChunkedArray& other) const {
+  if (length_ != other.length()) {
+    return false;
+  }
+  if (null_count_ != other.null_count()) {
+    return false;
+  }
+  if (length_ == 0) {
+    return type_->Equals(other.type_);
+  }
+
+  // Check contents of the underlying arrays. This checks for equality of
+  // the underlying data independently of the chunk size.
+  int this_chunk_idx = 0;
+  int64_t this_start_idx = 0;
+  int other_chunk_idx = 0;
+  int64_t other_start_idx = 0;
+
+  int64_t elements_compared = 0;
+  while (elements_compared < length_) {
+    const std::shared_ptr<Array> this_array = chunks_[this_chunk_idx];
+    const std::shared_ptr<Array> other_array = other.chunk(other_chunk_idx);
+    int64_t common_length = std::min(this_array->length() - this_start_idx,
+                                     other_array->length() - other_start_idx);
+    if (!this_array->RangeEquals(this_start_idx, this_start_idx + common_length,
+                                 other_start_idx, other_array)) {
+      return false;
+    }
+
+    elements_compared += common_length;
+
+    // If we have exhausted the current chunk, proceed to the next one individually.
+    if (this_start_idx + common_length == this_array->length()) {
+      this_chunk_idx++;
+      this_start_idx = 0;
+    } else {
+      this_start_idx += common_length;
+    }
+
+    if (other_start_idx + common_length == other_array->length()) {
+      other_chunk_idx++;
+      other_start_idx = 0;
+    } else {
+      other_start_idx += common_length;
+    }
+  }
+  return true;
+}
+
+bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
+  if (this == other.get()) {
+    return true;
+  }
+  if (!other) {
+    return false;
+  }
+  return Equals(*other.get());
+}
+
+std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
+  DCHECK_LE(offset, length_);
+
+  int curr_chunk = 0;
+  while (curr_chunk < num_chunks() && offset >= chunk(curr_chunk)->length()) {
+    offset -= chunk(curr_chunk)->length();
+    curr_chunk++;
+  }
+
+  ArrayVector new_chunks;
+  while (curr_chunk < num_chunks() && length > 0) {
+    new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
+    length -= chunk(curr_chunk)->length() - offset;
+    offset = 0;
+    curr_chunk++;
+  }
+
+  return std::make_shared<ChunkedArray>(new_chunks, type_);
+}
+
+std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset) const {
+  return Slice(offset, length_);
+}
+
+Status ChunkedArray::Flatten(MemoryPool* pool,
+                             std::vector<std::shared_ptr<ChunkedArray>>* out) const {
+  std::vector<std::shared_ptr<ChunkedArray>> flattened;
+  if (type()->id() != Type::STRUCT) {
+    // Emulate non-existent copy constructor
+    flattened.emplace_back(std::make_shared<ChunkedArray>(chunks_, type_));
+    *out = flattened;
+    return Status::OK();
+  }
+  std::vector<ArrayVector> flattened_chunks;
+  for (const auto& chunk : chunks_) {
+    ArrayVector res;
+    RETURN_NOT_OK(checked_cast<const StructArray&>(*chunk).Flatten(pool, &res));
+    if (!flattened_chunks.size()) {
+      // First chunk
+      for (const auto& array : res) {
+        flattened_chunks.push_back({array});
+      }
+    } else {
+      DCHECK_EQ(flattened_chunks.size(), res.size());
+      for (size_t i = 0; i < res.size(); ++i) {
+        flattened_chunks[i].push_back(res[i]);
+      }
+    }
+  }
+  for (const auto& vec : flattened_chunks) {
+    flattened.emplace_back(std::make_shared<ChunkedArray>(vec));
+  }
+  *out = flattened;
+  return Status::OK();
+}
+
+// ----------------------------------------------------------------------
 // Implement Array::Accept as inline visitor
 
 Status Array::Accept(ArrayVisitor* visitor) const {
@@ -846,6 +992,20 @@ struct ValidateVisitor {
         return Status::Invalid("Struct's length is not equal to its child arrays");
       }
     }
+    return Status::OK();
+  }
+
+  Status Visit(const ChunkedArray& array) {
+    if (array.length() < 0) {
+      return Status::Invalid("Length was negative");
+    }
+
+    if (array.null_count() > array.length()) {
+      return Status::Invalid("Null count exceeds the length of this chunked array");
+    }
+
+    // TODO: validate the fields
+
     return Status::OK();
   }
 

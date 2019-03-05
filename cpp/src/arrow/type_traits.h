@@ -252,6 +252,12 @@ struct TypeTraits<StructType> {
 };
 
 template <>
+struct TypeTraits<ChunkedType> {
+  using ArrayType = ChunkedArray;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
 struct TypeTraits<UnionType> {
   using ArrayType = UnionArray;
   constexpr static bool is_parameter_free = false;

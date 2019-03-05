@@ -56,6 +56,7 @@ namespace arrow {
   ACTION(Decimal128);                        \
   ACTION(List);                              \
   ACTION(Struct);                            \
+  ACTION(Chunked);                           \
   ACTION(Union);                             \
   ACTION(Dictionary);                        \
   ACTION(Extension)

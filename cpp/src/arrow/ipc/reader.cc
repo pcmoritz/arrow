@@ -240,6 +240,12 @@ class ArrayLoader {
     return LoadChildren(type.children());
   }
 
+  Status Visit(const ChunkedType& type) {
+    out_->buffers.resize(1);
+    RETURN_NOT_OK(LoadCommon());
+    return LoadChildren(type.children());
+  }
+
   Status Visit(const UnionType& type) {
     out_->buffers.resize(3);
 

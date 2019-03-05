@@ -346,6 +346,16 @@ class RecordBatchSerializer : public ArrayVisitor {
     return Status::OK();
   }
 
+  Status Visit(const ChunkedArray& array) override {
+    --max_recursion_depth_;
+    for (int i = 0; i < array.num_chunks(); ++i) {
+      std::shared_ptr<Array> chunk = array.chunk(i);
+      RETURN_NOT_OK(VisitArray(*chunk));
+    }
+    ++max_recursion_depth_;
+    return Status::OK();
+  }
+
   Status Visit(const UnionArray& array) override {
     const int64_t offset = array.offset();
     const int64_t length = array.length();

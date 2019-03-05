@@ -174,9 +174,21 @@ TEST_F(TestSchemaMetadata, NestedFields) {
       new StructType({field("k1", INT32), field("k2", INT32), field("k3", INT32)}));
   auto f1 = field("f1", type2);
 
-  Schema schema({f0, f1});
+  std::shared_ptr<ChunkedType> type3(
+      new ChunkedType(type2));
+  auto f3 = field("f3", type3);
+
+  Schema schema({f0, f1, f3});
   CheckRoundtrip(schema);
 }
+
+/*
+// Chunked
+auto chunked_type = chunked_(a0->type());
+std::vector<std::shared_ptr<Array>> chunked_children = {a0, a0, a0};
+a1 = std::make_shared<ChunkedArray>(chunked_children, chunked_type);
+CheckArray(a1);
+*/
 
 TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   auto field_metadata = key_value_metadata({{"key", "value"}});

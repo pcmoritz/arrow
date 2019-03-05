@@ -185,7 +185,8 @@ class SchemaWriter {
   template <typename T>
   typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
                               std::is_base_of<ListType, T>::value ||
-                              std::is_base_of<StructType, T>::value,
+                              std::is_base_of<StructType, T>::value ||
+                              std::is_base_of<ChunkedType, T>::value,
                           void>::type
   WriteTypeMetadata(const T& type) {}
 
@@ -331,6 +332,11 @@ class SchemaWriter {
 
   Status Visit(const StructType& type) {
     WriteName("struct", type);
+    return Status::OK();
+  }
+
+  Status Visit(const ChunkedType& type) {
+    WriteName("chunked", type);
     return Status::OK();
   }
 
@@ -566,6 +572,18 @@ class ArrayWriter {
       children.emplace_back(array.field(i));
     }
     return WriteChildren(type.children(), children);
+  }
+
+  Status Visit(const ChunkedArray& array) {
+    WriteValidityField(array);
+    const auto& type = checked_cast<const ChunkedType&>(*array.type());
+    std::vector<std::shared_ptr<Array>> chunks;
+    chunks.reserve(array.num_chunks());
+    for (int i = 0; i < array.num_chunks(); ++i) {
+      chunks.emplace_back(array.chunk(i));
+    }
+    // XXX
+    return WriteChildren(type.children(), chunks);
   }
 
   Status Visit(const UnionArray& array) {
@@ -1172,6 +1190,11 @@ class ArrayReader {
     result_ = std::make_shared<StructArray>(type_, length_, fields, validity_buffer,
                                             null_count);
 
+    return Status::OK();
+  }
+
+  Status Visit(const ChunkedType& type) {
+    // XXX
     return Status::OK();
   }
 

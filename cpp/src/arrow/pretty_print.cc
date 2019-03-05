@@ -278,6 +278,17 @@ class ArrayPrinter : public PrettyPrinter {
     return PrintChildren(children, 0, array.length());
   }
 
+  Status Visit(const ChunkedArray& array) {
+    RETURN_NOT_OK(WriteValidityBitmap(array));
+    std::vector<std::shared_ptr<Array>> chunks;
+    chunks.reserve(array.num_chunks());
+    for (int i = 0; i < array.num_chunks(); ++i) {
+      chunks.emplace_back(array.chunk(i));
+    }
+    std::cout << "XXX chunked array" << std::endl;
+    return Status::OK();
+  }
+
   Status Visit(const UnionArray& array) {
     RETURN_NOT_OK(WriteValidityBitmap(array));
 

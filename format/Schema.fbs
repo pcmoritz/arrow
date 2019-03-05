@@ -47,6 +47,9 @@ table Struct_ {
 table List {
 }
 
+table Chunked {
+}
+
 table FixedSizeList {
   /// Number of list items per value
   listSize: int;
@@ -205,6 +208,7 @@ union Type {
   Interval,
   List,
   Struct_,
+  Chunked,
   Union,
   FixedSizeBinary,
   FixedSizeList,

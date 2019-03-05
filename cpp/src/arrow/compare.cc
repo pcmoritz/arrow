@@ -156,6 +156,15 @@ class RangeEqualsVisitor {
     return true;
   }
 
+  bool CompareChunked(const ChunkedArray& left) {
+    const auto& right = checked_cast<const ChunkedArray&>(right_);
+    // TODO XXX do proper comparison
+    if (left.length() != right.length()) {
+      return false;
+    }
+    return true;
+  }
+
   bool CompareUnions(const UnionArray& left) const {
     const auto& right = checked_cast<const UnionArray&>(right_);
 
@@ -280,6 +289,11 @@ class RangeEqualsVisitor {
 
   Status Visit(const StructArray& left) {
     result_ = CompareStructs(left);
+    return Status::OK();
+  }
+
+  Status Visit(const ChunkedArray& left) {
+    result_ = CompareChunked(left);
     return Status::OK();
   }
 
@@ -665,6 +679,8 @@ class TypeEqualsVisitor {
   Status Visit(const ListType& left) { return VisitChildren(left); }
 
   Status Visit(const StructType& left) { return VisitChildren(left); }
+
+  Status Visit(const ChunkedType& left) { return VisitChildren(left); }
 
   Status Visit(const UnionType& left) {
     const auto& right = checked_cast<const UnionType&>(right_);

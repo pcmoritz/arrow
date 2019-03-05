@@ -81,6 +81,7 @@ ARROW_EXPORT
 Status PrettyPrint(const Array& arr, const PrettyPrintOptions& options,
                    std::string* result);
 
+/*
 /// \brief Print human-readable representation of ChunkedArray
 ARROW_EXPORT
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
@@ -90,6 +91,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
 ARROW_EXPORT
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
                    std::string* result);
+*/
 
 /// \brief Print human-readable representation of Column
 ARROW_EXPORT

@@ -132,6 +132,9 @@ struct Type {
     /// Dictionary aka Category type
     DICTIONARY,
 
+    /// Chunked array
+    CHUNKED,
+
     /// Map, a repeated struct logical type
     MAP,
 
@@ -531,6 +534,22 @@ class ARROW_EXPORT StructType : public NestedType {
   std::unordered_multimap<std::string, int> name_to_index_;
 };
 
+class ARROW_EXPORT ChunkedType : public NestedType {
+ public:
+  static constexpr Type::type type_id = Type::CHUNKED;
+
+  explicit ChunkedType(const std::shared_ptr<DataType>& chunk_type)
+      : ChunkedType(std::make_shared<Field>("chunk", chunk_type)) {}
+
+  explicit ChunkedType(const std::shared_ptr<Field>& chunk_field) : NestedType(Type::CHUNKED) {
+    children_ = {chunk_field};
+  }
+
+  std::string ToString() const override { return "XXX"; }
+
+  std::string name() const override { return "chunked"; }
+};
+
 /// \brief Base type class for (fixed-size) decimal data
 class ARROW_EXPORT DecimalType : public FixedSizeBinaryType {
  public:
@@ -911,6 +930,9 @@ std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
 /// \brief Create a StructType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
+
+std::shared_ptr<DataType> ARROW_EXPORT
+chunked_(const std::shared_ptr<DataType>& chunk_type);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT

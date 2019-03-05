@@ -849,6 +849,85 @@ class ARROW_EXPORT DictionaryArray : public Array {
   std::shared_ptr<Array> indices_;
 };
 
+/// \class ChunkedArray
+/// \brief A data structure managing a list of primitive Arrow arrays logically
+/// as one large array
+class ARROW_EXPORT ChunkedArray : public Array {
+ public:
+  using TypeClass = ChunkedType;
+
+  explicit ChunkedArray(const std::shared_ptr<ArrayData>& data);
+
+  /// \brief Construct a chunked array from a vector of arrays
+  ///
+  /// The vector should be non-empty and all its elements should have the same
+  /// data type.
+  explicit ChunkedArray(const ArrayVector& chunks);
+
+  /// \brief Construct a chunked array from a single Array
+  explicit ChunkedArray(const std::shared_ptr<Array>& chunk)
+      : ChunkedArray(ArrayVector({chunk})) {}
+
+  /// \brief Construct a chunked array from a vector of arrays and a data type
+  ///
+  /// As the data type is passed explicitly, the vector may be empty.
+  ChunkedArray(const ArrayVector& chunks, const std::shared_ptr<DataType>& type);
+
+  /// \return the total length of the chunked array; computed on construction
+  int64_t length() const { return length_; }
+
+  /// \return the total number of nulls among all chunks
+  int64_t null_count() const { return null_count_; }
+
+  int num_chunks() const { return static_cast<int>(chunks_.size()); }
+
+  /// \return chunk a particular chunk from the chunked array
+  std::shared_ptr<Array> chunk(int i) const { return chunks_[i]; }
+
+  const ArrayVector& chunks() const { return chunks_; }
+
+  /// \brief Construct a zero-copy slice of the chunked array with the
+  /// indicated offset and length
+  ///
+  /// \param[in] offset the position of the first element in the constructed
+  /// slice
+  /// \param[in] length the length of the slice. If there are not enough
+  /// elements in the chunked array, the length will be adjusted accordingly
+  ///
+  /// \return a new object wrapped in std::shared_ptr<ChunkedArray>
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset, int64_t length) const;
+
+  /// \brief Slice from offset until end of the chunked array
+  std::shared_ptr<ChunkedArray> Slice(int64_t offset) const;
+
+  /// \brief Flatten this chunked array as a vector of chunked arrays, one
+  /// for each struct field
+  ///
+  /// \param[in] pool The pool for buffer allocations, if any
+  /// \param[out] out The resulting vector of arrays
+  Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
+
+  std::shared_ptr<DataType> type() const { return type_; }
+
+  /// \brief Determine if two chunked arrays are equal.
+  ///
+  /// Two chunked arrays can be equal only if they have equal datatypes.
+  /// However, they may be equal even if they have different chunkings.
+  bool Equals(const ChunkedArray& other) const;
+  /// \brief Determine if two chunked arrays are equal.
+  bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
+
+ protected:
+  ArrayVector chunks_;
+  int64_t length_;
+  int64_t null_count_;
+  std::shared_ptr<DataType> type_;
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
+};
+
+
 /// \brief Perform any validation checks to determine obvious inconsistencies
 /// with the array's internal data
 ///

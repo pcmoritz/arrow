@@ -293,6 +293,9 @@ static Status ConcreteTypeFromFlatbuffer(
       }
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
+    case flatbuf::Type_Chunked:
+      *out = std::make_shared<ChunkedType>(children[0]);
+      return Status::OK();
     case flatbuf::Type_Struct_:
       *out = std::make_shared<StructType>(children);
       return Status::OK();
@@ -549,6 +552,13 @@ class FieldToFlatbufferVisitor {
     fb_type_ = flatbuf::Type_Struct_;
     RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
     type_offset_ = flatbuf::CreateStruct_(fbb_).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const ChunkedType& type) {
+    fb_type_ = flatbuf::Type_Chunked;
+    RETURN_NOT_OK(AppendChildFields(fbb_, type, &children_, dictionary_memo_));
+    type_offset_ = flatbuf::CreateChunked(fbb_).Union();
     return Status::OK();
   }
 
