@@ -923,6 +923,8 @@ class ARROW_EXPORT ChunkedArray : public Array {
   int64_t null_count_;
   std::shared_ptr<DataType> type_;
 
+  void SetData(const std::shared_ptr<ArrayData>& data);
+
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };

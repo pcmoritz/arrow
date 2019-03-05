@@ -372,6 +372,22 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status MakeChunked(std::shared_ptr<RecordBatch>* out) {
+  MemoryPool* pool = default_memory_pool();
+  const int length = 200;
+  std::shared_ptr<Array> values;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(length, include_nulls, pool, &values));
+  std::shared_ptr<Array> array(new ChunkedArray({values, values, values}));
+
+  // Make the schema
+  auto f0 = field("f0", array->type());
+  auto schema = ::arrow::schema({f0});
+
+  *out = RecordBatch::Make(schema, array->length(), {array});
+  return Status::OK();
+}
+
 Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // Define schema
   std::vector<std::shared_ptr<Field>> union_types(

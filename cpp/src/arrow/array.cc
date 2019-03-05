@@ -732,15 +732,19 @@ ChunkedArray::ChunkedArray(const std::shared_ptr<ArrayData>& data) {
 }
 
 ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
-  length_ = 0;
-  null_count_ = 0;
+  int64_t length = 0;
+  int64_t null_count = 0;
   DCHECK_GT(chunks.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
-  type_ = chunks[0]->type();
+  auto type = chunked_(chunks[0]->type());
+  std::vector<std::shared_ptr<ArrayData>> data;
   for (const std::shared_ptr<Array>& chunk : chunks) {
-    length_ += chunk->length();
-    null_count_ += chunk->null_count();
+    length += chunk->length();
+    null_count += chunk->null_count();
+    data.emplace_back(chunk->data());
   }
+  // XXXX
+  SetData(ArrayData::Make(type, length, {chunks[0]->null_bitmap()}, data, null_count));
 }
 
 ChunkedArray::ChunkedArray(const ArrayVector& chunks,
@@ -867,6 +871,13 @@ Status ChunkedArray::Flatten(MemoryPool* pool,
   }
   *out = flattened;
   return Status::OK();
+}
+
+void ChunkedArray::SetData(const std::shared_ptr<ArrayData>& data) {
+  this->Array::SetData(data);
+  for (const auto& child_data : data->child_data) {
+    chunks_.emplace_back(MakeArray(child_data));
+  }
 }
 
 // ----------------------------------------------------------------------

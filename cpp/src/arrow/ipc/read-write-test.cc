@@ -204,7 +204,7 @@ TEST_F(TestSchemaMetadata, KeyValueMetadata) {
 #define BATCH_CASES()                                                                   \
   ::testing::Values(&MakeIntRecordBatch, &MakeListRecordBatch, &MakeNonNullRecordBatch, \
                     &MakeZeroLengthRecordBatch, &MakeDeeplyNestedList,                  \
-                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeUnion,      \
+                    &MakeStringTypesRecordBatchWithNulls, &MakeStruct, &MakeChunked, &MakeUnion,      \
                     &MakeDictionary, &MakeDates, &MakeTimestamps, &MakeTimes,           \
                     &MakeFWBinary, &MakeNull, &MakeDecimal, &MakeBooleanBatch);
 
