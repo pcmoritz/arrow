@@ -736,15 +736,21 @@ ChunkedArray::ChunkedArray(const ArrayVector& chunks) : chunks_(chunks) {
   int64_t null_count = 0;
   DCHECK_GT(chunks.size(), 0)
       << "cannot construct ChunkedArray from empty vector and omitted type";
-  auto type = chunked_(chunks[0]->type());
+  std::vector<std::shared_ptr<Field>> chunk_fields;
   std::vector<std::shared_ptr<ArrayData>> data;
+  std::vector<std::shared_ptr<Buffer>> null_bitmaps;
   for (const std::shared_ptr<Array>& chunk : chunks) {
+    chunk_fields.emplace_back(std::make_shared<Field>("chunk", chunk->type()));
     length += chunk->length();
     null_count += chunk->null_count();
+    null_bitmaps.emplace_back(chunk->null_bitmap());
     data.emplace_back(chunk->data());
   }
-  // XXXX
-  SetData(ArrayData::Make(type, length, {chunks[0]->null_bitmap()}, data, null_count));
+  auto type = chunked_(chunk_fields);
+  std::shared_ptr<Buffer> null_bitmap;
+  // TODO: Fix pool
+  ARROW_CHECK_OK(Concatenate(null_bitmaps, nullptr, &null_bitmap));
+  SetData(ArrayData::Make(type, length, {null_bitmap}, data, null_count));
 }
 
 ChunkedArray::ChunkedArray(const ArrayVector& chunks,

@@ -294,7 +294,7 @@ static Status ConcreteTypeFromFlatbuffer(
       *out = std::make_shared<ListType>(children[0]);
       return Status::OK();
     case flatbuf::Type_Chunked:
-      *out = std::make_shared<ChunkedType>(children[0]);
+      *out = std::make_shared<ChunkedType>(children);
       return Status::OK();
     case flatbuf::Type_Struct_:
       *out = std::make_shared<StructType>(children);

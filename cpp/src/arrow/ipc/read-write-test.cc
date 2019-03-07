@@ -175,7 +175,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   auto f1 = field("f1", type2);
 
   std::shared_ptr<ChunkedType> type3(
-      new ChunkedType(type2));
+      new ChunkedType({f1, f1}));
   auto f3 = field("f3", type3);
 
   Schema schema({f0, f1, f3});

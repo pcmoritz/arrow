@@ -538,12 +538,7 @@ class ARROW_EXPORT ChunkedType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::CHUNKED;
 
-  explicit ChunkedType(const std::shared_ptr<DataType>& chunk_type)
-      : ChunkedType(std::make_shared<Field>("chunk", chunk_type)) {}
-
-  explicit ChunkedType(const std::shared_ptr<Field>& chunk_field) : NestedType(Type::CHUNKED) {
-    children_ = {chunk_field};
-  }
+  explicit ChunkedType(const std::vector<std::shared_ptr<Field>>& chunk_fields);
 
   std::string ToString() const override { return "XXX"; }
 
@@ -932,7 +927,7 @@ std::shared_ptr<DataType> ARROW_EXPORT
 struct_(const std::vector<std::shared_ptr<Field>>& fields);
 
 std::shared_ptr<DataType> ARROW_EXPORT
-chunked_(const std::shared_ptr<DataType>& chunk_type);
+chunked_(const std::vector<std::shared_ptr<Field>>& chunk_fields);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT

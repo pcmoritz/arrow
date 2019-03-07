@@ -311,6 +311,11 @@ int StructType::GetChildIndex(const std::string& name) const {
   return GetFieldIndex(name);
 }
 
+ChunkedType::ChunkedType(const std::vector<std::shared_ptr<Field>>& chunk_fields)
+ : NestedType(Type::CHUNKED) {
+  children_ = chunk_fields;
+}
+
 // ----------------------------------------------------------------------
 // Decimal128 type
 
@@ -569,8 +574,8 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
   return std::make_shared<StructType>(fields);
 }
 
-std::shared_ptr<DataType> chunked_(const std::shared_ptr<DataType>& chunk_type) {
-  return std::make_shared<ChunkedType>(chunk_type);
+std::shared_ptr<DataType> chunked_(const std::vector<std::shared_ptr<Field>>& chunk_fields) {
+  return std::make_shared<ChunkedType>(chunk_fields);
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
