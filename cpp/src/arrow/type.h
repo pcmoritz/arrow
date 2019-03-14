@@ -136,7 +136,10 @@ struct Type {
     MAP,
 
     /// Custom data type, implemented by user
-    EXTENSION
+    EXTENSION,
+
+    /// Absolute time offset according to the difference in UNIX time
+    DURATION_INTERVAL
   };
 };
 
@@ -745,6 +748,27 @@ class ARROW_EXPORT IntervalType : public FixedWidthType {
   Unit unit_;
 };
 
+class ARROW_EXPORT DurationIntervalType : public FixedWidthType {
+ public:
+  using Unit = TimeUnit;
+
+  using c_type = int64_t;
+  static constexpr Type::type type_id = Type::DURATION_INTERVAL;
+
+  int bit_width() const override { return static_cast<int>(sizeof(int64_t) * CHAR_BIT); }
+
+  explicit DurationIntervalType(TimeUnit::type unit = TimeUnit::MILLI)
+      : FixedWidthType(Type::DURATION_INTERVAL), unit_(unit) {}
+
+  std::string ToString() const override { return name(); }
+  std::string name() const override { return "duration_interval"; }
+
+  TimeUnit::type unit() const { return unit_; }
+
+private:
+  TimeUnit::type unit_;
+};
+
 // ----------------------------------------------------------------------
 // DictionaryType (for categorical or dictionary-encoded data)
 
@@ -907,6 +931,11 @@ std::shared_ptr<DataType> ARROW_EXPORT time32(TimeUnit::type unit);
 ///
 /// Unit can be either MICRO or NANO
 std::shared_ptr<DataType> ARROW_EXPORT time64(TimeUnit::type unit);
+
+/// \brief Create a DurationInterval type instance
+///
+/// Unit can be MILLI, MICRO, NANO
+std::shared_ptr<DataType> ARROW_EXPORT duration_interval(TimeUnit::type unit);
 
 /// \brief Create a StructType instance
 std::shared_ptr<DataType> ARROW_EXPORT

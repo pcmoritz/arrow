@@ -187,6 +187,10 @@ table Interval {
   unit: IntervalUnit;
 }
 
+table DurationInterval {
+  unit: TimeUnit = MILLISECOND;
+}
+
 /// ----------------------------------------------------------------------
 /// Top-level Type value, enabling extensible type-specific metadata. We can
 /// add new logical types to Type without breaking backwards compatibility
@@ -208,7 +212,8 @@ union Type {
   Union,
   FixedSizeBinary,
   FixedSizeList,
-  Map
+  Map,
+  DurationInterval
 }
 
 /// ----------------------------------------------------------------------

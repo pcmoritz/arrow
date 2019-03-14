@@ -557,6 +557,10 @@ std::shared_ptr<DataType> time64(TimeUnit::type unit) {
   return std::make_shared<Time64Type>(unit);
 }
 
+std::shared_ptr<DataType> duration_interval(TimeUnit::type unit) {
+  return std::make_shared<DurationIntervalType>(unit);
+}
+
 std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
   return std::make_shared<ListType>(value_type);
 }

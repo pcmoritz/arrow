@@ -287,6 +287,12 @@ static Status ConcreteTypeFromFlatbuffer(
     }
     case flatbuf::Type_Interval:
       return Status::NotImplemented("Interval");
+    case flatbuf::Type_DurationInterval: {
+      auto di_type = static_cast<const flatbuf::DurationInterval*>(type_data);
+      TimeUnit::type unit = FromFlatbufferUnit(di_type->unit());
+      *out = duration_interval(unit);
+      return Status::OK();
+    }
     case flatbuf::Type_List:
       if (children.size() != 1) {
         return Status::Invalid("List must have exactly 1 child field");
@@ -527,6 +533,14 @@ class FieldToFlatbufferVisitor {
       fb_timezone = fbb_.CreateString(ts_type.timezone());
     }
     type_offset_ = flatbuf::CreateTimestamp(fbb_, fb_unit, fb_timezone).Union();
+    return Status::OK();
+  }
+
+  Status Visit(const DurationIntervalType& type) {
+    const auto& di_type = checked_cast<const DurationIntervalType&>(type);
+    fb_type_ = flatbuf::Type_DurationInterval;
+    flatbuf::TimeUnit fb_unit = ToFlatbufferUnit(di_type.unit());
+    type_offset_ = flatbuf::CreateDurationInterval(fbb_, fb_unit).Union();
     return Status::OK();
   }
 
