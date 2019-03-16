@@ -136,6 +136,8 @@ class BaseTableReader : public csv::TableReader {
   Status ProcessHeader() {
     DCHECK_GT(cur_size_, 0);
     if (parse_options_.header_rows == 0) {
+      BlockParser parser(pool_, parse_options_, num_cols_, parse_options_.header_rows);
+      num_cols_ = parser.num_cols();
       for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
         std::ostringstream convert;
         convert.imbue(std::locale::classic());
