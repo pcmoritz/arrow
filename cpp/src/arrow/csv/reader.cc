@@ -136,8 +136,13 @@ class BaseTableReader : public csv::TableReader {
   Status ProcessHeader() {
     DCHECK_GT(cur_size_, 0);
     if (parse_options_.header_rows == 0) {
-      // TODO allow passing names and/or generate column numbers?
-      return Status::Invalid("header_rows == 0 needs explicit column names");
+      for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
+        std::ostringstream convert;
+        convert.imbue(std::locale::classic());
+        convert << col_index;
+        column_names_.emplace_back(convert.str());
+      }
+      return Status::OK();
     }
 
     BlockParser parser(pool_, parse_options_, num_cols_, parse_options_.header_rows);
