@@ -137,6 +137,9 @@ class BaseTableReader : public csv::TableReader {
     DCHECK_GT(cur_size_, 0);
     if (parse_options_.header_rows == 0) {
       BlockParser parser(pool_, parse_options_, num_cols_, 1);
+      uint32_t parsed_size = 0;
+      RETURN_NOT_OK(parser.Parse(reinterpret_cast<const char*>(cur_data_),
+                                 static_cast<uint32_t>(cur_size_), &parsed_size));
       num_cols_ = parser.num_cols();
       for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
         std::ostringstream convert;
