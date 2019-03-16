@@ -141,6 +141,10 @@ class BaseTableReader : public csv::TableReader {
         convert.imbue(std::locale::classic());
         convert << col_index;
         column_names_.emplace_back(convert.str());
+        std::shared_ptr<ColumnBuilder> builder;
+        RETURN_NOT_OK(
+            ColumnBuilder::Make(col_index, convert_options_, task_group_, &builder));
+        column_builders_.push_back(builder);
       }
       return Status::OK();
     }
