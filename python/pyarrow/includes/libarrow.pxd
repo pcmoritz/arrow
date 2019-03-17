@@ -1010,6 +1010,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool allow_time_truncate
         c_bool allow_float_truncate
 
+    cdef cppclass CTakeOptions" arrow::compute::TakeOptions":
+        pass
+
     enum DatumType" arrow::compute::Datum::type":
         DatumType_NONE" arrow::compute::Datum::NONE"
         DatumType_SCALAR" arrow::compute::Datum::SCALAR"
@@ -1045,6 +1048,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     CStatus DictionaryEncode(CFunctionContext* context, const CDatum& value,
                              CDatum* out)
+
+    CStatus Take(CFunctionContext* context, const CArray& values,
+                 const CArray& indices, const CTakeOptions& options,
+                 shared_ptr[CArray]* out)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
