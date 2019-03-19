@@ -35,10 +35,7 @@ void dlfree(void* mem);
 
 ObjectTableEntry::ObjectTableEntry() : pointer(nullptr), ref_count(0) {}
 
-ObjectTableEntry::~ObjectTableEntry() {
-  dlfree(pointer);
-  pointer = nullptr;
-}
+ObjectTableEntry::~ObjectTableEntry() { pointer = nullptr; }
 
 int WarnIfSigpipe(int status, int client_sock) {
   if (status >= 0) {

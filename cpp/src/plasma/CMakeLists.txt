@@ -31,8 +31,6 @@ find_package(Threads)
 set(PLASMA_SO_VERSION "${ARROW_SO_VERSION}")
 set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
-include_directories("${FLATBUFFERS_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/" "${CMAKE_CURRENT_LIST_DIR}/thirdparty/" "${CMAKE_CURRENT_LIST_DIR}/../")
-
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 
 # Compile flatbuffers
@@ -67,17 +65,14 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
-set(PLASMA_SRCS
-  client.cc
-  common.cc
-  eviction_policy.cc
-  events.cc
-  fling.cc
-  io.cc
-  malloc.cc
-  plasma.cc
-  protocol.cc
-  thirdparty/ae/ae.c)
+set(PLASMA_SRCS client.cc common.cc fling.cc io.cc malloc.cc plasma.cc protocol.cc)
+
+set(PLASMA_STORE_SRCS
+    dlmalloc.cc
+    events.cc
+    eviction_policy.cc
+    store.cc
+    thirdparty/ae/ae.c)
 
 set(PLASMA_LINK_LIBS arrow_shared)
 set(PLASMA_STATIC_LINK_LIBS arrow_static)
@@ -104,30 +99,30 @@ endforeach()
 
 # The optimization flag -O3 is suggested by dlmalloc.c, which is #included in
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
-set_source_files_properties(malloc.cc PROPERTIES
-  COMPILE_FLAGS "-O3")
+set_source_files_properties(dlmalloc.cc PROPERTIES COMPILE_FLAGS "-O3")
 
-if ("${COMPILER_FAMILY}" STREQUAL "clang")
-  set_property(SOURCE malloc.cc
-    APPEND_STRING
-    PROPERTY COMPILE_FLAGS
-    " -Wno-parentheses-equality \
+if("${COMPILER_FAMILY}" STREQUAL "clang")
+  set_property(SOURCE dlmalloc.cc
+               APPEND_STRING
+               PROPERTY COMPILE_FLAGS " -Wno-parentheses-equality \
 -Wno-null-pointer-arithmetic \
 -Wno-shorten-64-to-32 \
 -Wno-unused-macros")
 endif()
 
-if ("${COMPILER_FAMILY}" STREQUAL "gcc")
-  set_property(SOURCE malloc.cc
-    APPEND_STRING
-    PROPERTY COMPILE_FLAGS
-    " -Wno-conversion")
+if("${COMPILER_FAMILY}" STREQUAL "gcc")
+  set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
 # We use static libraries for the plasma_store_server executable so that it can
 # be copied around and used in different locations.
-add_executable(plasma_store_server store.cc)
-target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
+add_executable(plasma_store_server ${PLASMA_EXTERNAL_STORE_SOURCES} ${PLASMA_STORE_SRCS})
+if(ARROW_BUILD_STATIC)
+  target_link_libraries(plasma_store_server plasma_static ${PLASMA_STATIC_LINK_LIBS})
+else()
+  # Fallback to shared libs in the case that static libraries are not build.
+  target_link_libraries(plasma_store_server plasma_shared ${PLASMA_LINK_LIBS})
+endif()
 add_dependencies(plasma plasma_store_server)
 
 if (ARROW_RPATH_ORIGIN)

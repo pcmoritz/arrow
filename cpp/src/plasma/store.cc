@@ -461,6 +461,12 @@ int PlasmaStore::RemoveFromClientObjectIds(const ObjectID& object_id,
   }
 }
 
+void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
+  auto& object = store_info_.objects[object_id];
+  dlfree(object->pointer);
+  store_info_.objects.erase(object_id);
+}
+
 void PlasmaStore::ReleaseObject(const ObjectID& object_id, Client* client) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   ARROW_CHECK(entry != nullptr);
@@ -512,7 +518,7 @@ int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
     return 0;
   } else {
     // The client requesting the abort is the creator. Free the object.
-    store_info_.objects.erase(object_id);
+    EraseFromObjectTable(object_id);
     return 1;
   }
 }
@@ -542,8 +548,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   }
 
   eviction_policy_.RemoveObject(object_id);
-
-  store_info_.objects.erase(object_id);
+  EraseFromObjectTable(object_id);
   // Inform all subscribers that the object has been deleted.
   fb::ObjectInfoT notification;
   notification.object_id = object_id.binary();
@@ -1048,7 +1053,7 @@ int main(int argc, char* argv[]) {
              "pass an argument with the flag '--shm-size' to 'docker run'.";
     }
   } else {
-    SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
+    plasma::SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
   }
 #endif
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;

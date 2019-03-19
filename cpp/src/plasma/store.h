@@ -211,6 +211,8 @@ class PlasmaStore {
   int RemoveFromClientObjectIds(const ObjectID& object_id, ObjectTableEntry* entry,
                                 Client* client);
 
+  void EraseFromObjectTable(const ObjectID& object_id);
+
   /// Event loop of the plasma store.
   EventLoop* loop_;
   /// The plasma store information, including the object tables, that is exposed
