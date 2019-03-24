@@ -153,6 +153,15 @@ cdef class ChunkedArray(_PandasConvertible):
             return self.to_pandas()
         return self.to_pandas().astype(dtype)
 
+    def value_counts(self):
+        cdef shared_ptr[CArray] result
+
+        with nogil:
+            check_status(ValueCounts(_context(), CDatum(self.sp_chunked_array),
+                                     &result))
+
+        return pyarrow_wrap_array(result)
+
     def dictionary_encode(self):
         """
         Compute dictionary-encoded representation of array
@@ -412,6 +421,10 @@ cdef class Column(_PandasConvertible):
 
         casted_data = pyarrow_wrap_chunked_array(out.chunked_array())
         return column(self.name, casted_data)
+
+    def value_counts(self):
+        ca = self.data.value_counts()
+        return column(self.name, ca)
 
     def dictionary_encode(self):
         """
