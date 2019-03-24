@@ -481,6 +481,17 @@ cdef class Array(_PandasConvertible):
 
         return pyarrow_wrap_array(result)
 
+    def value_counts(self):
+        """
+        Compute number of occurrences for each value in array
+        """
+        cdef shared_ptr[CArray] result
+
+        with nogil:
+            check_status(ValueCounts(_context(), CDatum(self.sp_array), &result))
+
+        return pyarrow_wrap_array(result)
+
     def dictionary_encode(self):
         """
         Compute dictionary-encoded representation of array

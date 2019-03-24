@@ -1043,6 +1043,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus Unique(CFunctionContext* context, const CDatum& value,
                    shared_ptr[CArray]* out)
 
+    CStatus ValueCounts(CFunctionContext* context, const CDatum& value,
+                        shared_ptr[CArray]* counts)
+
     CStatus DictionaryEncode(CFunctionContext* context, const CDatum& value,
                              CDatum* out)
 
