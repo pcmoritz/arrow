@@ -34,6 +34,8 @@ using arrow::Status;
 
 namespace plasma {
 
+struct PlasmaHeader;
+
 /// Object buffer data structure.
 struct ObjectBuffer {
   /// The data buffer.

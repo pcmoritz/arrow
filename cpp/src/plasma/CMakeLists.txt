@@ -60,8 +60,9 @@ add_custom_command(
   VERBATIM)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSHM")
 
-set(PLASMA_SRCS client.cc common.cc fling.cc io.cc malloc.cc plasma.cc protocol.cc)
+set(PLASMA_SRCS client.cc common.cc fling.cc io.cc malloc.cc plasma.cc protocol.cc thirdparty/malloc.c)
 
 set(PLASMA_STORE_SRCS
     dlmalloc.cc
