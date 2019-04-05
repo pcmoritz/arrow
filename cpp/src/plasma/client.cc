@@ -77,14 +77,19 @@ namespace plasma {
 constexpr int64_t kPlasmaTableCapacity = 10000;
 
 struct ObjectHeader {
-  ObjectID object_id;
   int64_t data_size;
+  uint8_t* pointer;
   int64_t ref_count;
-  ObjectHeader* next;
+  // For locking the following condition variable.
+  pthread_mutex_t lock;
+  // This will signal to other processes that the object is available.
+  pthread_cond_t cond;
 };
 
 struct PlasmaHeader {
-  ObjectHeader* locations[kPlasmaTableCapacity];
+  pthread_condattr_t cond_attr;
+  pthread_mutexattr_t mutex_attr;
+  ObjectHeader locations[kPlasmaTableCapacity];
 };
 
 using fb::MessageType;
@@ -401,15 +406,16 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
 Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
                                   const uint8_t* metadata, int64_t metadata_size,
                                   std::shared_ptr<Buffer>* data, int device_num) {
-  int64_t size = sizeof(ObjectHeader) + data_size;
-  uint8_t* pointer = reinterpret_cast<uint8_t*>(shm_malloc(size));
-  *data = std::make_shared<PlasmaMutableBuffer>(shared_from_this(), pointer + sizeof(ObjectHeader), data_size);
-  ObjectHeader* header = reinterpret_cast<ObjectHeader*>(pointer);
-  header->object_id = object_id;
+  uint8_t* pointer = reinterpret_cast<uint8_t*>(shm_malloc(data_size));
+  *data = std::make_shared<PlasmaMutableBuffer>(shared_from_this(), pointer, data_size);
+
+  ObjectHeader* header = &header_->locations[object_id.hash() % kPlasmaTableCapacity];
   header->data_size = data_size;
   header->ref_count = 0;
-  header->next = nullptr;
-  header_->locations[object_id.hash() % kPlasmaTableCapacity] = header;
+  pthread_mutex_lock(&header->lock);
+  header->pointer = pointer;
+  pthread_cond_signal(&header->cond);
+  pthread_mutex_unlock(&header->lock);
   return Status::OK();
 }
 
@@ -442,8 +448,18 @@ Status PlasmaClient::Impl::GetBuffers(
         const ObjectID&, const std::shared_ptr<Buffer>&)>& wrap_buffer,
     ObjectBuffer* object_buffers) {
   for (int64_t i = 0; i < num_objects; ++i) {
+    // bool present = header_->locations[object_ids[i].hash() % kPlasmaTableCapacity].pointer == nullptr;
+    // ObjectHeader* header = header_->locations[object_ids[i].hash() % kPlasmaTableCapacity];
+    // if (!header) {
+      // Wait for object
 
-    ObjectHeader* header = header_->locations[object_ids[i].hash() % kPlasmaTableCapacity];
+    // }
+    ObjectHeader* header = &header_->locations[object_ids[i].hash() % kPlasmaTableCapacity];
+    pthread_mutex_lock(&header->lock);
+    while (header->pointer == nullptr) {
+      pthread_cond_wait(&header->cond, &header->lock);
+    }
+    pthread_mutex_unlock(&header->lock);
     std::shared_ptr<Buffer> physical_buf;
     physical_buf = std::make_shared<Buffer>(
         reinterpret_cast<uint8_t*>(header) + sizeof(ObjectHeader), header->data_size);
@@ -755,6 +771,19 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
 
 void setup() {
   PlasmaHeader *header = reinterpret_cast<PlasmaHeader*>(shm_malloc(sizeof(PlasmaHeader)));
+
+  pthread_mutexattr_init(&header->mutex_attr);
+  pthread_mutexattr_setpshared(&header->mutex_attr, PTHREAD_PROCESS_SHARED);
+
+  pthread_condattr_init(&header->cond_attr);
+  pthread_condattr_setpshared(&header->cond_attr, PTHREAD_PROCESS_SHARED);
+
+  for (int64_t i = 0; i < kPlasmaTableCapacity; ++i) {
+    header->locations[i].pointer = nullptr;
+    pthread_mutex_init(&header->locations[i].lock, &header->mutex_attr);
+    pthread_cond_init(&header->locations[i].cond, &header->cond_attr);
+  }
+
   ARROW_CHECK(header) << "allocating header not successful";
   shm_set_global(header);
   std::cout << "allocated header" << header;
