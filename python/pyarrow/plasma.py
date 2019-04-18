@@ -121,25 +121,28 @@ def start_plasma_store(plasma_store_memory,
                        "--show-leak-kinds=all",
                        "--leak-check-heuristics=stdstring",
                        "--error-exitcode=1"] + command
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
+            # proc = subprocess.Popen(command, stdout=stdout_file,
+            #                         stderr=stderr_file)
+            proc = None
             time.sleep(1.0)
         elif use_profiler:
             command = ["valgrind", "--tool=callgrind"] + command
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
+            # proc = subprocess.Popen(command, stdout=stdout_file,
+            #                         stderr=stderr_file)
+            proc = None
             time.sleep(1.0)
         else:
-            proc = subprocess.Popen(command, stdout=stdout_file,
-                                    stderr=stderr_file)
+            # proc = subprocess.Popen(command, stdout=stdout_file,
+            #                         stderr=stderr_file)
+            proc = None
             time.sleep(0.1)
-        rc = proc.poll()
-        if rc is not None:
-            raise RuntimeError("plasma_store exited unexpectedly with "
-                               "code %d" % (rc,))
+        # rc = proc.poll()
+        # if rc is not None:
+        #     raise RuntimeError("plasma_store exited unexpectedly with "
+        #                        "code %d" % (rc,))
 
         yield plasma_store_name, proc
     finally:
-        if proc.poll() is None:
-            proc.kill()
+        # if proc.poll() is None:
+        #     proc.kill()
         shutil.rmtree(tmpdir)

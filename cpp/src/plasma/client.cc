@@ -76,22 +76,6 @@ namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
-struct ObjectHeader {
-  int64_t data_size;
-  uint8_t* pointer;
-  int64_t ref_count;
-  // For locking the following condition variable.
-  pthread_mutex_t lock;
-  // This will signal to other processes that the object is available.
-  pthread_cond_t cond;
-};
-
-struct PlasmaHeader {
-  pthread_condattr_t cond_attr;
-  pthread_mutexattr_t mutex_attr;
-  PlasmaTable table;
-};
-
 using fb::MessageType;
 using fb::PlasmaError;
 
@@ -322,7 +306,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   /// A hash set to record the ids that users want to delete but still in use.
   std::unordered_set<ObjectID> deletion_cache_;
 
-  PlasmaHeader* header_;
+  PlasmaTable* table_;
 
 #ifdef PLASMA_CUDA
   /// Cuda Device Manager.
@@ -406,9 +390,10 @@ void PlasmaClient::Impl::IncrementObjectCount(const ObjectID& object_id,
 Status PlasmaClient::Impl::Create(const ObjectID& object_id, int64_t data_size,
                                   const uint8_t* metadata, int64_t metadata_size,
                                   std::shared_ptr<Buffer>* data, int device_num) {
-  uint8_t* pointer = reinterpret_cast<uint8_t*>(shm_malloc(data_size));
-  *data = std::make_shared<PlasmaMutableBuffer>(shared_from_this(), pointer, data_size);
-  RETURN_NOT_OK(header_->table.Add(object_id, data_size, pointer));
+  uint8_t* pointer = reinterpret_cast<uint8_t*>(shm_malloc(metadata_size + data_size));
+  *data = std::make_shared<PlasmaMutableBuffer>(shared_from_this(), pointer + metadata_size, data_size);
+  std::copy(metadata, metadata + metadata_size, pointer);
+  RETURN_NOT_OK(table_->Add(object_id, data_size, metadata_size, pointer));
   return Status::OK();
 }
 
@@ -442,12 +427,14 @@ Status PlasmaClient::Impl::GetBuffers(
     ObjectBuffer* object_buffers) {
   for (int64_t i = 0; i < num_objects; ++i) {
     int64_t data_size = -1;
+    int64_t metadata_size = -1;
     uint8_t* pointer = nullptr;
-    RETURN_NOT_OK(header_->table.Get(object_ids[i], &data_size, &pointer));
+    RETURN_NOT_OK(table_->Get(object_ids[i], &data_size, &metadata_size, &pointer));
     std::shared_ptr<Buffer> physical_buf;
-    physical_buf = std::make_shared<Buffer>(pointer, data_size);
+    physical_buf = std::make_shared<Buffer>(pointer, data_size + metadata_size);
     physical_buf = wrap_buffer(object_ids[i], physical_buf);
-    object_buffers[i].data = SliceBuffer(physical_buf, 0, data_size);
+    object_buffers[i].metadata = SliceBuffer(physical_buf, 0, metadata_size);
+    object_buffers[i].data = SliceBuffer(physical_buf, metadata_size, metadata_size + data_size);
   }
 
   return Status::OK();
@@ -763,7 +750,7 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
   if (shm_init(store_socket_name.c_str(), setup) < 0) {
     return Status::Invalid("Could not open " + store_socket_name);
   }
-  header_ = reinterpret_cast<PlasmaHeader*>(shm_global());
+  table_ = reinterpret_cast<PlasmaTable*>(shm_global());
   return Status::OK();
 }
 

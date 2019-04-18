@@ -122,29 +122,13 @@ class TestPlasmaClient(object):
         self.plasma_client2 = plasma.connect(self.plasma_store_name)
 
     def teardown_method(self, test_method):
-        try:
-            # Check that the Plasma store is still alive.
-            assert self.p.poll() is None
-            # Ensure Valgrind and/or coverage have a clean exit
-            # Valgrind misses SIGTERM if it is delivered before the
-            # event loop is ready; this race condition is mitigated
-            # but not solved by time.sleep().
-            if USE_VALGRIND:
-                time.sleep(1.0)
-            self.p.send_signal(signal.SIGTERM)
-            if sys.version_info >= (3, 3):
-                self.p.wait(timeout=5)
-            else:
-                self.p.wait()
-            assert self.p.returncode == 0
-        finally:
-            self.plasma_store_ctx.__exit__(None, None, None)
+        self.plasma_store_ctx.__exit__(None, None, None)
 
-    def test_connection_failure_raises_exception(self):
-        import pyarrow.plasma as plasma
-        # ARROW-1264
-        with pytest.raises(IOError):
-            plasma.connect('unknown-store-name', num_retries=1)
+    # def test_connection_failure_raises_exception(self):
+    #     import pyarrow.plasma as plasma
+    #     # ARROW-1264
+    #     with pytest.raises(IOError):
+    #         plasma.connect('unknown-store-name', num_retries=1)
 
     def test_create(self):
         # Create an object id string.
@@ -936,16 +920,7 @@ class TestEvictionToExternalStore(object):
         self.plasma_client = plasma.connect(self.plasma_store_name)
 
     def teardown_method(self, test_method):
-        try:
-            # Check that the Plasma store is still alive.
-            assert self.p.poll() is None
-            self.p.send_signal(signal.SIGTERM)
-            if sys.version_info >= (3, 3):
-                self.p.wait(timeout=5)
-            else:
-                self.p.wait()
-        finally:
-            self.plasma_store_ctx.__exit__(None, None, None)
+        self.plasma_store_ctx.__exit__(None, None, None)
 
     def test_eviction(self):
         client = self.plasma_client

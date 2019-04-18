@@ -15,11 +15,11 @@ struct PlasmaTableEntry;
 class PlasmaTable {
 public:
   Status Init();
-  PlasmaTableEntry* MakePlasmaTableEntry(const ObjectID& id, int64_t data_size, uint8_t* pointer);
-  Status Lookup(const ObjectID& id, int64_t* data_size, uint8_t** pointer);
-  Status Add(const ObjectID& id, int64_t data_size, uint8_t* pointer);
+  PlasmaTableEntry* MakePlasmaTableEntry(const ObjectID& id, int64_t data_size, int64_t metadata_size, uint8_t* pointer);
+  Status Lookup(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer);
+  Status Add(const ObjectID& id, int64_t data_size, int64_t metadata_size, uint8_t* pointer);
   // Get an item and block if it is not there.
-  Status Get(const ObjectID& id, int64_t* data_size, uint8_t** pointer);
+  Status Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer);
 
 private:
   pthread_condattr_t cond_attr_;

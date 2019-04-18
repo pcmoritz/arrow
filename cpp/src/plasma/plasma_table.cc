@@ -14,6 +14,7 @@ namespace plasma {
 struct PlasmaTableEntry {
     ObjectID id;
     int64_t data_size;
+    int64_t metadata_size;
     uint8_t* pointer;
     // For locking the following condition variable.
     pthread_mutex_t mutex;
@@ -23,10 +24,11 @@ struct PlasmaTableEntry {
     UT_hash_handle hh;
 };
 
-PlasmaTableEntry* PlasmaTable::MakePlasmaTableEntry(const ObjectID& id, int64_t data_size, uint8_t* pointer) {
+PlasmaTableEntry* PlasmaTable::MakePlasmaTableEntry(const ObjectID& id, int64_t data_size, int64_t metadata_size, uint8_t* pointer) {
   auto entry = reinterpret_cast<PlasmaTableEntry*>(shm_calloc(1, sizeof(PlasmaTableEntry)));
   entry->id = id;
   entry->data_size = data_size;
+  entry->metadata_size = metadata_size;
   entry->pointer = pointer;
   pthread_mutex_init(&entry->mutex, &mutex_attr_);
   pthread_cond_init(&entry->cond, &cond_attr_);
@@ -43,8 +45,7 @@ Status PlasmaTable::Init() {
   pthread_rwlockattr_init(&rwlock_attr_);
   pthread_rwlockattr_setpshared(&rwlock_attr_, PTHREAD_PROCESS_SHARED);
 
-  int err = pthread_rwlock_init(&lock_, &rwlock_attr_);
-  ARROW_CHECK(err == 0) << err;
+  ARROW_CHECK(pthread_rwlock_init(&lock_, &rwlock_attr_) == 0);
 
   return Status::OK();
 }
@@ -55,36 +56,39 @@ PlasmaTable* MakeSharedPlasmaTable() {
   return table;
 }
 
-Status PlasmaTable::Lookup(const ObjectID& id, int64_t* data_size, uint8_t** pointer) {
+Status PlasmaTable::Lookup(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer) {
   PlasmaTableEntry* entry;
-  ARROW_CHECK(pthread_rwlock_rdlock(&lock_) != 0);
+  ARROW_CHECK(pthread_rwlock_rdlock(&lock_) == 0);
   HASH_FIND(hh, table_, &id, sizeof(id), entry);
   pthread_rwlock_unlock(&lock_);
   if (entry) {
     *data_size = entry->data_size;
+    *metadata_size = entry->metadata_size;
     *pointer = entry->pointer;
   } else {
     *data_size = -1;
+    *metadata_size = -1;
     *pointer = nullptr;
   }
   return Status::OK();
 }
 
-Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, uint8_t* pointer) {
+Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_size, uint8_t* pointer) {
   PlasmaTableEntry* entry;
-  ARROW_CHECK(pthread_rwlock_rdlock(&lock_) != 0);
+  ARROW_CHECK(pthread_rwlock_rdlock(&lock_) == 0);
   HASH_FIND(hh, table_, &id, sizeof(id), entry);
   pthread_rwlock_unlock(&lock_);
   if (entry) {
     pthread_mutex_lock(&entry->mutex);
     entry->data_size = data_size;
+    entry->metadata_size = metadata_size;
     entry->pointer = pointer;
     pthread_cond_signal(&entry->cond);
     pthread_mutex_unlock(&entry->mutex);
   }
   if (!entry) {
-    entry = MakePlasmaTableEntry(id, data_size, pointer);
-    ARROW_CHECK(pthread_rwlock_wrlock(&lock_) != 0);
+    entry = MakePlasmaTableEntry(id, data_size, metadata_size, pointer);
+    ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
     HASH_ADD(hh, table_, id, sizeof(id), entry);
     pthread_rwlock_unlock(&lock_);
   }
@@ -94,11 +98,11 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, uint8_t* pointer)
 // It is important that we do not hold the read-write lock
 // while we are blocked in Get so other clients can put the object
 // into the table.
-Status PlasmaTable::Get(const ObjectID& id, int64_t* data_size, uint8_t** pointer) {
-  RETURN_NOT_OK(Lookup(id, data_size, pointer));
+Status PlasmaTable::Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer) {
+  RETURN_NOT_OK(Lookup(id, data_size, metadata_size, pointer));
   if (!*pointer) {
-    PlasmaTableEntry* entry = MakePlasmaTableEntry(id, -1, nullptr);
-    ARROW_CHECK(pthread_rwlock_wrlock(&lock_) != 0);
+    PlasmaTableEntry* entry = MakePlasmaTableEntry(id, -1, -1, nullptr);
+    ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
     HASH_ADD(hh, table_, id, sizeof(id), entry);
     pthread_rwlock_unlock(&lock_);
     pthread_mutex_lock(&entry->mutex);
@@ -106,6 +110,7 @@ Status PlasmaTable::Get(const ObjectID& id, int64_t* data_size, uint8_t** pointe
       pthread_cond_wait(&entry->cond, &entry->mutex);
     }
     *data_size = entry->data_size;
+    *metadata_size = entry->metadata_size;
     *pointer = entry->pointer;
     pthread_mutex_unlock(&entry->mutex);
   }
