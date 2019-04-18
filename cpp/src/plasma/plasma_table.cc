@@ -78,15 +78,21 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
   ARROW_CHECK(pthread_rwlock_rdlock(&lock_) == 0);
   HASH_FIND(hh, table_, &id, sizeof(id), entry);
   pthread_rwlock_unlock(&lock_);
-  if (entry) {
+  if (entry && entry->data_size != -1) {
+    // The object already exists in the object store.
+    return Status::PlasmaObjectExists("object already exists in the plasma store");
+  } else if (entry) {
+    // The object doesn't exist in the object store yet, but there is at
+    // least one Get waiting for it.
     pthread_mutex_lock(&entry->mutex);
     entry->data_size = data_size;
     entry->metadata_size = metadata_size;
     entry->pointer = pointer;
     pthread_cond_signal(&entry->cond);
     pthread_mutex_unlock(&entry->mutex);
-  }
-  if (!entry) {
+  } else {
+    // The object doesn't exist in the object store yet and we need to
+    // create an entry for it in the object table.
     entry = MakePlasmaTableEntry(id, data_size, metadata_size, pointer);
     ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
     HASH_ADD(hh, table_, id, sizeof(id), entry);

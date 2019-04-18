@@ -407,16 +407,14 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
   // CreateAndSeal currently only supports device_num = 0, which corresponds to
   // the host.
   int device_num = 0;
-  uint64_t hash = ComputeObjectHash(
-      reinterpret_cast<const uint8_t*>(data.data()), data.size(),
-      reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+  auto data_pointer = reinterpret_cast<const uint8_t*>(data.data());
+  auto metadata_pointer = reinterpret_cast<const uint8_t*>(metadata.data());
+  uint64_t hash = ComputeObjectHash(data_pointer, data.size(), metadata_pointer, metadata.size(), device_num);
   memcpy(&digest[0], &hash, sizeof(hash));
-
-  RETURN_NOT_OK(SendCreateAndSealRequest(store_conn_, object_id, data, metadata, digest));
-  std::vector<uint8_t> buffer;
-  RETURN_NOT_OK(
-      PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealReply, &buffer));
-  RETURN_NOT_OK(ReadCreateAndSealReply(buffer.data(), buffer.size()));
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(Create(object_id, data.size(), metadata_pointer, metadata.size(), &buffer, device_num));
+  ARROW_LOG(WARNING) << "buffer size is " << buffer->size();
+  std::copy(data.data(), data.data() + data.size(), buffer->mutable_data());
   return Status::OK();
 }
 
@@ -434,7 +432,7 @@ Status PlasmaClient::Impl::GetBuffers(
     physical_buf = std::make_shared<Buffer>(pointer, data_size + metadata_size);
     physical_buf = wrap_buffer(object_ids[i], physical_buf);
     object_buffers[i].metadata = SliceBuffer(physical_buf, 0, metadata_size);
-    object_buffers[i].data = SliceBuffer(physical_buf, metadata_size, metadata_size + data_size);
+    object_buffers[i].data = SliceBuffer(physical_buf, metadata_size, data_size);
   }
 
   return Status::OK();
