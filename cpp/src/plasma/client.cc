@@ -39,6 +39,7 @@
 #include "thirdparty/shm_malloc.h"
 
 #include <algorithm>
+#include <chrono>
 #include <deque>
 #include <mutex>
 #include <unordered_map>
@@ -423,16 +424,24 @@ Status PlasmaClient::Impl::GetBuffers(
     const std::function<std::shared_ptr<Buffer>(
         const ObjectID&, const std::shared_ptr<Buffer>&)>& wrap_buffer,
     ObjectBuffer* object_buffers) {
+  auto now = std::chrono::system_clock::now();
+  auto start = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+  int64_t deadline = start.count() + timeout_ms;
   for (int64_t i = 0; i < num_objects; ++i) {
     int64_t data_size = -1;
     int64_t metadata_size = -1;
     uint8_t* pointer = nullptr;
-    RETURN_NOT_OK(table_->Get(object_ids[i], &data_size, &metadata_size, &pointer));
-    std::shared_ptr<Buffer> physical_buf;
-    physical_buf = std::make_shared<Buffer>(pointer, data_size + metadata_size);
-    physical_buf = wrap_buffer(object_ids[i], physical_buf);
-    object_buffers[i].metadata = SliceBuffer(physical_buf, 0, metadata_size);
-    object_buffers[i].data = SliceBuffer(physical_buf, metadata_size, data_size);
+    RETURN_NOT_OK(table_->Get(object_ids[i], &data_size, &metadata_size, &pointer, deadline));
+    if (pointer) {
+      std::shared_ptr<Buffer> physical_buf;
+      physical_buf = std::make_shared<Buffer>(pointer, data_size + metadata_size);
+      physical_buf = wrap_buffer(object_ids[i], physical_buf);
+      object_buffers[i].metadata = SliceBuffer(physical_buf, 0, metadata_size);
+      object_buffers[i].data = SliceBuffer(physical_buf, metadata_size, data_size);
+    } else {
+      object_buffers[i].metadata = nullptr;
+      object_buffers[i].data = nullptr;
+    }
   }
 
   return Status::OK();

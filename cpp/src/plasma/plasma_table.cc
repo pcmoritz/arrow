@@ -104,16 +104,26 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
 // It is important that we do not hold the read-write lock
 // while we are blocked in Get so other clients can put the object
 // into the table.
-Status PlasmaTable::Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer) {
+Status PlasmaTable::Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer, int64_t deadline) {
   RETURN_NOT_OK(Lookup(id, data_size, metadata_size, pointer));
   if (!*pointer) {
     PlasmaTableEntry* entry = MakePlasmaTableEntry(id, -1, -1, nullptr);
     ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
     HASH_ADD(hh, table_, id, sizeof(id), entry);
     pthread_rwlock_unlock(&lock_);
+    timespec ts;
+    ts.tv_sec = deadline / 1000;
+    ts.tv_nsec = (deadline % 1000) * 1000 * 1000;
     pthread_mutex_lock(&entry->mutex);
     while (!entry->pointer) {
-      pthread_cond_wait(&entry->cond, &entry->mutex);
+      int r = pthread_cond_timedwait(&entry->cond, &entry->mutex, &ts);
+      if (r == ETIMEDOUT) {
+        *data_size = -1;
+        *metadata_size = -1;
+        *pointer = nullptr;
+        pthread_mutex_unlock(&entry->mutex);
+        return Status::OK();
+      }
     }
     *data_size = entry->data_size;
     *metadata_size = entry->metadata_size;
