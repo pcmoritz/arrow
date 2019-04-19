@@ -502,19 +502,14 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
 
 // This method is used to query whether the plasma store contains an object.
 Status PlasmaClient::Impl::Contains(const ObjectID& object_id, bool* has_object) {
-  // Check if we already have a reference to the object.
-  if (objects_in_use_.count(object_id) > 0) {
-    *has_object = 1;
+  int64_t data_size;
+  int64_t metadata_size;
+  uint8_t* pointer;
+  RETURN_NOT_OK(table_->Lookup(object_id, &data_size, &metadata_size, &pointer));
+  if (pointer) {
+    *has_object = true;
   } else {
-    // If we don't already have a reference to the object, check with the store
-    // to see if we have the object.
-    RETURN_NOT_OK(SendContainsRequest(store_conn_, object_id));
-    std::vector<uint8_t> buffer;
-    RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaContainsReply, &buffer));
-    ObjectID object_id2;
-    DCHECK_GT(buffer.size(), 0);
-    RETURN_NOT_OK(
-        ReadContainsReply(buffer.data(), buffer.size(), &object_id2, has_object));
+    *has_object = false;
   }
   return Status::OK();
 }
