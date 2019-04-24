@@ -414,7 +414,6 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
   memcpy(&digest[0], &hash, sizeof(hash));
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(Create(object_id, data.size(), metadata_pointer, metadata.size(), &buffer, device_num));
-  ARROW_LOG(WARNING) << "buffer size is " << buffer->size();
   std::copy(data.data(), data.data() + data.size(), buffer->mutable_data());
   return Status::OK();
 }
@@ -497,15 +496,17 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
     }
   }
   */
-  return Status::OK();
+  return table_->DecrementReferenceCount(object_id);
 }
 
 // This method is used to query whether the plasma store contains an object.
 Status PlasmaClient::Impl::Contains(const ObjectID& object_id, bool* has_object) {
   int64_t data_size;
   int64_t metadata_size;
+  int64_t reference_count;
+  int64_t lru_time;
   uint8_t* pointer;
-  RETURN_NOT_OK(table_->Lookup(object_id, &data_size, &metadata_size, &pointer));
+  RETURN_NOT_OK(table_->Lookup(object_id, &data_size, &metadata_size, &reference_count, &lru_time, &pointer));
   if (pointer) {
     *has_object = true;
   } else {
@@ -672,13 +673,33 @@ Status PlasmaClient::Impl::Delete(const std::vector<ObjectID>& object_ids) {
 }
 
 Status PlasmaClient::Impl::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {
-  // Send a request to the store to evict objects.
-  RETURN_NOT_OK(SendEvictRequest(store_conn_, num_bytes));
-  // Wait for a response with the number of bytes actually evicted.
-  std::vector<uint8_t> buffer;
-  MessageType type;
-  RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
-  return ReadEvictReply(buffer.data(), buffer.size(), num_bytes_evicted);
+  num_bytes_evicted = 0;
+  while (num_bytes_evicted < num_bytes) {
+    int64_t min_lru_time = std::numeric_limits<int64_t>::max();
+    ObjectID lru_object_id;
+    int64_t lru_data_size = -1;
+    for (int i = 0; i < 5; ++i) {
+      ObjectID object_id;
+      RETURN_NOT_OK(table_->GetRandomElement(&object_id));
+      int64_t data_size;
+      int64_t metadata_size;
+      int64_t reference_count;
+      int64_t lru_time;
+      uint8_t* pointer;
+      RETURN_NOT_OK(table_->Lookup(object_id, &data_size, &metadata_size, &reference_count, &lru_time, &pointer));
+      if (lru_time < min_lru_time && reference_count == 0) {
+        lru_object_id = object_id;
+        lru_data_size = data_size;
+      }
+    }
+    if (lru_data_size != -1) {
+      num_bytes_evicted += lru_data_size;
+      RETURN_NOT_OK(table_->Delete(lru_object_id));
+    } else {
+      break;
+    }
+  }
+  return Status::OK();
 }
 
 Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
@@ -763,8 +784,9 @@ Status PlasmaClient::Impl::Disconnect() {
 
   // Close the connections to Plasma. The Plasma store will release the objects
   // that were in use by us when handling the SIGPIPE.
-  close(store_conn_);
-  store_conn_ = -1;
+  // close(store_conn_);
+  // store_conn_ = -1;
+  shm_fini();
   return Status::OK();
 }
 

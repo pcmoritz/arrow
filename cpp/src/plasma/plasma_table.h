@@ -16,10 +16,14 @@ class PlasmaTable {
 public:
   Status Init();
   PlasmaTableEntry* MakePlasmaTableEntry(const ObjectID& id, int64_t data_size, int64_t metadata_size, uint8_t* pointer);
-  Status Lookup(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer);
+  Status Lookup(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, int64_t* reference_count, int64_t* lru_time, uint8_t** pointer);
   Status Add(const ObjectID& id, int64_t data_size, int64_t metadata_size, uint8_t* pointer);
   // Get an item and block if it is not there.
   Status Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer, int64_t deadline);
+  Status Delete(const ObjectID& id);
+  Status GetRandomElement(ObjectID* id);
+  Status IncrementReferenceCount(const ObjectID& id);
+  Status DecrementReferenceCount(const ObjectID& id);
 
 private:
   pthread_condattr_t cond_attr_;

@@ -123,6 +123,8 @@ class TestPlasmaClient(object):
 
     def teardown_method(self, test_method):
         self.plasma_store_ctx.__exit__(None, None, None)
+        self.plasma_client.disconnect()
+        self.plasma_client2.disconnect()
 
     # def test_connection_failure_raises_exception(self):
     #     import pyarrow.plasma as plasma

@@ -16,6 +16,8 @@ struct PlasmaTableEntry {
     int64_t data_size;
     int64_t metadata_size;
     uint8_t* pointer;
+    int64_t reference_count;
+    int64_t lru_time;
     // For locking the following condition variable.
     pthread_mutex_t mutex;
     // This will signal to other processes that the object is available.
@@ -24,12 +26,19 @@ struct PlasmaTableEntry {
     UT_hash_handle hh;
 };
 
+int64_t GetTimeMs() {
+  auto now = std::chrono::system_clock::now();
+  return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+}
+
 PlasmaTableEntry* PlasmaTable::MakePlasmaTableEntry(const ObjectID& id, int64_t data_size, int64_t metadata_size, uint8_t* pointer) {
   auto entry = reinterpret_cast<PlasmaTableEntry*>(shm_calloc(1, sizeof(PlasmaTableEntry)));
   entry->id = id;
   entry->data_size = data_size;
   entry->metadata_size = metadata_size;
   entry->pointer = pointer;
+  entry->reference_count = 1;
+  entry->lru_time = GetTimeMs();
   pthread_mutex_init(&entry->mutex, &mutex_attr_);
   pthread_cond_init(&entry->cond, &cond_attr_);
   return entry;
@@ -56,7 +65,8 @@ PlasmaTable* MakeSharedPlasmaTable() {
   return table;
 }
 
-Status PlasmaTable::Lookup(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer) {
+Status PlasmaTable::Lookup(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, int64_t* reference_count, int64_t* lru_time, uint8_t** pointer) {
+  // TODO: Update LRU time
   PlasmaTableEntry* entry;
   ARROW_CHECK(pthread_rwlock_rdlock(&lock_) == 0);
   HASH_FIND(hh, table_, &id, sizeof(id), entry);
@@ -65,10 +75,14 @@ Status PlasmaTable::Lookup(const ObjectID& id, int64_t* data_size, int64_t* meta
     *data_size = entry->data_size;
     *metadata_size = entry->metadata_size;
     *pointer = entry->pointer;
+    *reference_count = entry->reference_count;
+    *lru_time = entry->lru_time;
   } else {
     *data_size = -1;
     *metadata_size = -1;
     *pointer = nullptr;
+    *reference_count = -1;
+    *lru_time = 0;
   }
   return Status::OK();
 }
@@ -88,6 +102,8 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
     entry->data_size = data_size;
     entry->metadata_size = metadata_size;
     entry->pointer = pointer;
+    entry->reference_count = 1;
+    entry->lru_time = GetTimeMs();
     pthread_cond_signal(&entry->cond);
     pthread_mutex_unlock(&entry->mutex);
   } else {
@@ -105,7 +121,9 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
 // while we are blocked in Get so other clients can put the object
 // into the table.
 Status PlasmaTable::Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer, int64_t deadline) {
-  RETURN_NOT_OK(Lookup(id, data_size, metadata_size, pointer));
+  int64_t reference_count;
+  int64_t lru_time;
+  RETURN_NOT_OK(Lookup(id, data_size, metadata_size, &reference_count, &lru_time, pointer));
   if (!*pointer) {
     PlasmaTableEntry* entry = MakePlasmaTableEntry(id, -1, -1, nullptr);
     ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
@@ -130,6 +148,75 @@ Status PlasmaTable::Get(const ObjectID& id, int64_t* data_size, int64_t* metadat
     *pointer = entry->pointer;
     pthread_mutex_unlock(&entry->mutex);
   }
+  return Status::OK();
+}
+
+Status PlasmaTable::Delete(const ObjectID& id) {
+  PlasmaTableEntry* entry;
+  ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
+  HASH_FIND(hh, table_, &id, sizeof(id), entry);
+  if (entry) {
+    HASH_DEL(table_, entry);
+  }
+  pthread_rwlock_unlock(&lock_);
+  shm_free(entry);
+  return Status::OK();
+}
+
+Status PlasmaTable::GetRandomElement(ObjectID* id) {
+  ARROW_CHECK(pthread_rwlock_rdlock(&lock_) == 0);
+  unsigned long num_buckets = table_->hh.tbl->num_buckets;
+  ARROW_CHECK(num_buckets > 0);
+  unsigned long bucket = random() % num_buckets;
+  UT_hash_handle* handle = nullptr;
+  for (unsigned long i = 0; i < num_buckets; ++i) {
+    handle = table_->hh.tbl->buckets[(bucket + i) % num_buckets].hh_head;
+    if (handle) break;
+  }
+  if (!handle) {
+    return Status::PlasmaObjectNonexistent("");
+  }
+  // First we count the number of buckets
+  UT_hash_handle* h = handle;
+  unsigned long bucket_length = 0;
+  while (h) {
+    h = h->hh_next;
+    bucket_length++;
+  }
+  // Now we find a random element in the bucket
+  ARROW_CHECK(bucket_length > 0);
+  unsigned long bucket_index = random() % bucket_length;
+  h = handle;
+  while (bucket_index--) {
+    h = h->hh_next;
+  }
+  ARROW_CHECK(h->keylen == sizeof(ObjectID));
+  memcpy(id->mutable_data(), h->key, h->keylen);
+  pthread_rwlock_unlock(&lock_);
+  return Status::OK();
+}
+
+Status PlasmaTable::IncrementReferenceCount(const ObjectID& id) {
+  PlasmaTableEntry* entry;
+  // TODO(pcm): Change this to a rdlock and use atomics for the reference_count
+  ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
+  HASH_FIND(hh, table_, &id, sizeof(id), entry);
+  if (entry) {
+    entry->reference_count += 1;
+  }
+  pthread_rwlock_unlock(&lock_);
+  return Status::OK();
+}
+
+Status PlasmaTable::DecrementReferenceCount(const ObjectID& id) {
+  PlasmaTableEntry* entry;
+  // TODO(pcm): Change this to a rdlock and use atomics for the reference_count
+  ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
+  HASH_FIND(hh, table_, &id, sizeof(id), entry);
+  if (entry) {
+    entry->reference_count -= 1;
+  }
+  pthread_rwlock_unlock(&lock_);
   return Status::OK();
 }
 
