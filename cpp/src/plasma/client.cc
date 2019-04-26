@@ -36,7 +36,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "thirdparty/shm_malloc.h"
+#include "plasma/thirdparty/shm_malloc.h"
 
 #include <algorithm>
 #include <chrono>
