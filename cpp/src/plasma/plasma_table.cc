@@ -1,4 +1,4 @@
-#include "plasma_table.h"
+#include "plasma/plasma_table.h"
 
 #include "thirdparty/shm_malloc.h"
 
