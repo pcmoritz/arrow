@@ -309,6 +309,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   PlasmaTable* table_;
 
+  std::string store_socket_name_;
+
 #ifdef PLASMA_CUDA
   /// Cuda Device Manager.
   arrow::cuda::CudaDeviceManager* manager_;
@@ -718,22 +720,8 @@ Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
 }
 
 Status PlasmaClient::Impl::Subscribe(int* fd) {
-  int sock[2];
-  // Create a non-blocking socket pair. This will only be used to send
-  // notifications from the Plasma store to the client.
-  socketpair(AF_UNIX, SOCK_STREAM, 0, sock);
-  // Make the socket non-blocking.
-  int flags = fcntl(sock[1], F_GETFL, 0);
-  ARROW_CHECK(fcntl(sock[1], F_SETFL, flags | O_NONBLOCK) == 0);
-  // Tell the Plasma store about the subscription.
-  RETURN_NOT_OK(SendSubscribeRequest(store_conn_));
-  // Send the file descriptor that the Plasma store should use to push
-  // notifications about sealed objects to this client.
-  ARROW_CHECK(send_fd(store_conn_, sock[1]) >= 0);
-  close(sock[1]);
-  // Return the file descriptor that the client should use to read notifications
-  // about sealed objects.
-  *fd = sock[0];
+  *fd = open(store_socket_name_.c_str(), O_RDWR, 0);
+  ARROW_CHECK(*fd >= 0);
   return Status::OK();
 }
 
@@ -755,11 +743,7 @@ Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* o
 
 Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
                                            int64_t* data_size, int64_t* metadata_size) {
-  auto notification = ReadMessageAsync(fd);
-  if (notification == NULL) {
-    return Status::IOError("Failed to read object notification from Plasma socket");
-  }
-  return DecodeNotification(notification.get(), object_id, data_size, metadata_size);
+  return table_->GetNotification(fd, object_id, data_size, metadata_size);
 }
 
 void setup() {
@@ -770,6 +754,7 @@ void setup() {
 Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
                                    const std::string& manager_socket_name,
                                    int release_delay, int num_retries) {
+  store_socket_name_ = store_socket_name;
   if (shm_init(store_socket_name.c_str(), setup) < 0) {
     return Status::Invalid("Could not open " + store_socket_name);
   }

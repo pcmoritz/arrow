@@ -196,6 +196,27 @@ Status PlasmaTable::GetRandomElement(ObjectID* id) {
   return Status::OK();
 }
 
+Status PlasmaTable::GetNotification(int fd, ObjectID* object_id,
+                                    int64_t* data_size, int64_t* metadata_size) {
+  static bool first_iteration = true;
+  static PlasmaTableEntry* entry = table_;
+  ARROW_CHECK(pthread_rwlock_rdlock(&lock_) == 0);
+  if (first_iteration) {
+    *object_id = entry->id;
+    *data_size = entry->data_size;
+    *metadata_size = entry->metadata_size;
+    first_iteration = false;
+  }
+  if (entry->hh.next && !first_iteration) {
+    entry = reinterpret_cast<PlasmaTableEntry*>(entry->hh.next);
+    *object_id = entry->id;
+    *data_size = entry->data_size;
+    *metadata_size = entry->metadata_size;
+  }
+  pthread_rwlock_unlock(&lock_);
+  return Status::OK();
+}
+
 Status PlasmaTable::IncrementReferenceCount(const ObjectID& id) {
   PlasmaTableEntry* entry;
   // TODO(pcm): Change this to a rdlock and use atomics for the reference_count

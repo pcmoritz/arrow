@@ -22,6 +22,8 @@ public:
   Status Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer, int64_t deadline);
   Status Delete(const ObjectID& id);
   Status GetRandomElement(ObjectID* id);
+  Status GetNotification(int fd, ObjectID* object_id,
+                         int64_t* data_size, int64_t* metadata_size);
   Status IncrementReferenceCount(const ObjectID& id);
   Status DecrementReferenceCount(const ObjectID& id);
 
