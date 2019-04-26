@@ -1,11 +1,11 @@
 #include "plasma/plasma_table.h"
 
-#include "thirdparty/shm_malloc.h"
+#include "plasma/thirdparty/shm_malloc.h"
 
 #define uthash_malloc(sz) shm_malloc(sz)
 #define uthash_free(ptr,sz) shm_free(ptr)
 
-#include "thirdparty/uthash.h"
+#include "plasma/thirdparty/uthash.h"
 
 #include "arrow/util/logging.h"
 
