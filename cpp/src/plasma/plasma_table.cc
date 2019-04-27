@@ -1,5 +1,7 @@
 #include "plasma/plasma_table.h"
 
+#include <chrono>
+
 #include "plasma/thirdparty/shm_malloc.h"
 
 #define uthash_malloc(sz) shm_malloc(sz)
