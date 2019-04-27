@@ -74,7 +74,7 @@ extern int brk(void *);
 #define thread_local
 #endif
 
-#include "malloc.h"
+#include "plasma/thirdparty/malloc.h"
 
 #if defined(__GNUC__) && (defined(__x86_64__) || defined(__i386__))
 #undef SMLIST
@@ -302,7 +302,7 @@ unsigned long long      t = s * 16807LL;
     t = (t&mod) + (t>>31);
     if (t>mod) t -= mod;
     return t;
-}   
+}
 
 #define GUARD	0xa1962f8dU
 #define	DB(code)	code
@@ -668,7 +668,7 @@ struct sigaction	segv;
 		return -1; } }
 	else if (!mfile || (errno == ENOENT &&
 		 (mfd = open(mfile, O_RDWR|O_CREAT|O_EXCL, 0666)) >= 0)) {
-	    if (mfd >= 0) {	    
+	    if (mfd >= 0) {
 		if (ftruncate(mfd, 3*PAGESIZE) < 0) {
 		    close(mfd);
 		    return -1; }
@@ -1148,7 +1148,7 @@ struct page	*p;
 	    p->count = -1; } }
     membase->freechunks[l] =
 	page_list_sort(membase->freechunks[l], 0);
-    while (membase->freechunks[l] && 
+    while (membase->freechunks[l] &&
 	   (p = NUM2PAGE(membase->freechunks[l]))->count < 0)
     {
 	unsigned pn = membase->freechunks[l];
