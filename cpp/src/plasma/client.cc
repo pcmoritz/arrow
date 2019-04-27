@@ -756,7 +756,7 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
                                    int release_delay, int num_retries) {
   store_socket_name_ = store_socket_name;
   if (shm_init(store_socket_name.c_str(), setup) < 0) {
-    return Status::Invalid("Could not open " + store_socket_name);
+    return Status::Invalid("Could not open " + store_socket_name + ", errno = " + std::to_string(errno));
   }
   table_ = reinterpret_cast<PlasmaTable*>(shm_global());
   return Status::OK();
