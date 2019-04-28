@@ -774,9 +774,11 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
     return Status::Invalid("Could not open " + store_socket_name + ", errno = " + std::to_string(errno));
   }
   notification_file_name_ = store_socket_name_ + "_notification";
-  notification_fd_ = mkfifo(notification_file_name_.c_str(), 0666);
+  mkfifo(notification_file_name_.c_str(), 0666);
   // notification_fd_ = open(notification_file_name_.c_str(), O_RDWR | O_CREAT, 0666);
-  ARROW_CHECK(notification_fd_ >= 0) << "errno = " << errno << " " << notification_file_name_;
+  // ARROW_CHECK(notification_fd_ >= 0) << "errno = " << errno << " " << notification_file_name_;
+  // SUPER DANGEROUS, writing might be interleaved!
+  notification_fd_ = open(notification_file_name_.c_str(), O_WRONLY);
   table_ = reinterpret_cast<PlasmaTable*>(shm_global());
   return Status::OK();
 }
