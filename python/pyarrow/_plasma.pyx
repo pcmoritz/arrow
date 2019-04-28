@@ -628,9 +628,9 @@ cdef class PlasmaClient:
         """
         Get the notification socket.
         """
-        return compat.get_socket_from_fd(self.notification_fd,
-                                         family=socket.AF_UNIX,
-                                         type=socket.SOCK_STREAM)
+        result = os.fdopen(self.notification_fd)
+        print("socket", type(result))
+        return result
 
     def decode_notification(self, const uint8_t* buf):
         """

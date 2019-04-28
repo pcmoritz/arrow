@@ -739,7 +739,7 @@ class TestPlasmaClient(object):
     def test_subscribe_socket(self):
         # Subscribe to notifications from the Plasma Store.
         self.plasma_client.subscribe()
-        rsock = self.plasma_client.get_notification_socket()
+        rfile = self.plasma_client.get_notification_socket()
         for i in self.SUBSCRIBE_TEST_SIZES:
             # Get notification from socket.
             object_ids = [random_object_id() for _ in range(i)]
@@ -756,8 +756,8 @@ class TestPlasmaClient(object):
             for j in range(i):
                 # Assume the plasma store will not be full,
                 # so we always get the data size instead of -1.
-                msg_len, = struct.unpack('L', rsock.recv(8))
-                content = rsock.recv(msg_len)
+                msg_len, = struct.unpack('L', rfile.read(8))
+                content = rfile.read(msg_len)
                 recv_objid, recv_dsize, recv_msize = (
                     self.plasma_client.decode_notification(content))
                 assert object_ids[j] == recv_objid
