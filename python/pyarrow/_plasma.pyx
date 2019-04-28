@@ -628,7 +628,7 @@ cdef class PlasmaClient:
         """
         Get the notification socket.
         """
-        result = os.fdopen(self.notification_fd)
+        result = os.fdopen(self.notification_fd, "rb")
         print("socket", type(result))
         return result
 
