@@ -33,6 +33,7 @@ import collections
 import random
 import socket
 import warnings
+import os
 
 import pyarrow
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
