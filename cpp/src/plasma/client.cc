@@ -310,6 +310,7 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   PlasmaTable* table_;
 
   std::string store_socket_name_;
+  int notification_fd_;
 
 #ifdef PLASMA_CUDA
   /// Cuda Device Manager.
@@ -621,6 +622,17 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   // released before the call to PlasmaClient::Seal.
   return Release(object_id);
   */
+  int64_t reference_count;
+  int64_t lru_time;
+  uint8_t* pointer;
+
+  flatbuf::ObjectInfoT info;
+  info.object_id = object_id.binary();
+  RETURN_NOT_OK(table_->Lookup(object_id, &info.data_size, &info.metadata_size, &reference_count, &lru_time, &pointer));
+  auto notification = CreateObjectInfoBuffer(&info);
+  // Decode the length, which is the first bytes of the message.
+  int64_t size = *(reinterpret_cast<int64_t*>(notification.get()));
+  ARROW_CHECK(write(notification_fd_, notification.get(), sizeof(int64_t) + size) == sizeof(int64_t) + size);
   return Status::OK();
 }
 
@@ -758,6 +770,9 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
   if (shm_init(store_socket_name.c_str(), setup) < 0) {
     return Status::Invalid("Could not open " + store_socket_name + ", errno = " + std::to_string(errno));
   }
+  std::string notification_file_name = store_socket_name_ + "_notification";
+  notification_fd_ = open(notification_file_name.c_str(), O_RDWR, 0);
+  ARROW_CHECK(notification_fd_ >= 0);
   table_ = reinterpret_cast<PlasmaTable*>(shm_global());
   return Status::OK();
 }
