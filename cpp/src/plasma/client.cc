@@ -629,6 +629,7 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
 
   flatbuf::ObjectInfoT info;
   info.object_id = object_id.binary();
+  info.is_deletion = false;
   RETURN_NOT_OK(table_->Lookup(object_id, &info.data_size, &info.metadata_size, &reference_count, &lru_time, &pointer));
   auto notification = CreateObjectInfoBuffer(&info);
   // Decode the length, which is the first bytes of the message.
