@@ -58,6 +58,11 @@ Status PlasmaTable::Init() {
 
   ARROW_CHECK(pthread_rwlock_init(&lock_, &rwlock_attr_) == 0);
 
+  pthread_mutex_init(&notification_mutex_, &mutex_attr_);
+  pthread_cond_init(&notification_cond_, &cond_attr_);
+
+  num_notifications_ = 0;
+
   return Status::OK();
 }
 
@@ -108,6 +113,11 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
     entry->lru_time = GetTimeMs();
     pthread_cond_signal(&entry->cond);
     pthread_mutex_unlock(&entry->mutex);
+
+    pthread_mutex_lock(&notification_mutex_);
+    num_notifications_ += 1;
+    pthread_cond_signal(&notification_cond_);
+    pthread_mutex_unlock(&notification_mutex_);
   } else {
     // The object doesn't exist in the object store yet and we need to
     // create an entry for it in the object table.
@@ -195,6 +205,17 @@ Status PlasmaTable::GetRandomElement(ObjectID* id) {
   ARROW_CHECK(h->keylen == sizeof(ObjectID));
   memcpy(id->mutable_data(), h->key, h->keylen);
   pthread_rwlock_unlock(&lock_);
+  return Status::OK();
+}
+
+Status PlasmaTable::WaitForNotification() {
+  static int64_t num_notifications = 0;
+  pthread_mutex_lock(&notification_mutex_);
+  while (num_notifications < num_notifications_) {
+    int r = pthread_cond_wait(&notification_cond_, &notification_mutex_);
+    num_notifications += 1;
+  }
+  pthread_mutex_unlock(&notification_mutex_);
   return Status::OK();
 }
 

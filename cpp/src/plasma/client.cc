@@ -255,6 +255,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   int64_t store_capacity() { return store_capacity_; }
 
+  void WaitForNotification() {
+    table_->WaitForNotification();
+  }
+
  private:
   /// Check if store_fd has already been received from the store. If yes,
   /// return it. Otherwise, receive it from the store (see analogous logic
@@ -736,6 +740,8 @@ Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
 
 Status PlasmaClient::Impl::Subscribe(int* fd) {
   *fd = open(notification_file_name_.c_str(), O_RDONLY, 0);
+  // Start new thread here, which waits on a condition variable and
+  // calls a callback if the condition happens
   ARROW_CHECK(*fd >= 0);
   return Status::OK();
 }
@@ -880,5 +886,9 @@ bool PlasmaClient::IsInUse(const ObjectID& object_id) {
 }
 
 int64_t PlasmaClient::store_capacity() { return impl_->store_capacity(); }
+
+void PlasmaClient::WaitForNotification() {
+  impl_->WaitForNotification();
+}
 
 }  // namespace plasma

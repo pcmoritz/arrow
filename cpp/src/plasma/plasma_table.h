@@ -22,6 +22,7 @@ public:
   Status Get(const ObjectID& id, int64_t* data_size, int64_t* metadata_size, uint8_t** pointer, int64_t deadline);
   Status Delete(const ObjectID& id);
   Status GetRandomElement(ObjectID* id);
+  Status WaitForNotification();
   Status GetNotification(int fd, ObjectID* object_id,
                          int64_t* data_size, int64_t* metadata_size);
   Status IncrementReferenceCount(const ObjectID& id);
@@ -32,6 +33,11 @@ private:
   pthread_mutexattr_t mutex_attr_;
   pthread_rwlockattr_t rwlock_attr_;
   pthread_rwlock_t lock_;
+  // For locking the following condition variable.
+  pthread_mutex_t notification_mutex_;
+  // This will signal to other processes that a new object is available.
+  pthread_cond_t notification_cond_;
+  int64_t num_notifications_;
   PlasmaTableEntry* table_;
 };
 

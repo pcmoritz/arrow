@@ -257,6 +257,8 @@ class ARROW_EXPORT PlasmaClient {
   /// \return Memory capacity of the store in bytes.
   int64_t store_capacity();
 
+  void WaitForNotification();
+
  private:
   friend class PlasmaBuffer;
   friend class PlasmaMutableBuffer;
