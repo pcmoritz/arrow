@@ -739,7 +739,7 @@ Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
 }
 
 Status PlasmaClient::Impl::Subscribe(int* fd) {
-  *fd = open(notification_file_name_.c_str(), O_RDONLY, 0);
+  *fd = open(notification_file_name_.c_str(), O_RDWR, 0);
   // Start new thread here, which waits on a condition variable and
   // calls a callback if the condition happens
   ARROW_CHECK(*fd >= 0);
@@ -781,10 +781,8 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
   }
   notification_file_name_ = store_socket_name_ + "_notification";
   mkfifo(notification_file_name_.c_str(), 0666);
-  // notification_fd_ = open(notification_file_name_.c_str(), O_RDWR | O_CREAT, 0666);
-  // ARROW_CHECK(notification_fd_ >= 0) << "errno = " << errno << " " << notification_file_name_;
-  // SUPER DANGEROUS, writing might be interleaved!
-  notification_fd_ = open(notification_file_name_.c_str(), O_WRONLY);
+  notification_fd_ = open(notification_file_name_.c_str(), O_RDWR | O_CREAT, 0666);
+  ARROW_CHECK(notification_fd_ >= 0) << "errno = " << errno << " " << notification_file_name_;
   table_ = reinterpret_cast<PlasmaTable*>(shm_global());
   return Status::OK();
 }

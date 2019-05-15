@@ -212,6 +212,7 @@ Status PlasmaTable::WaitForNotification() {
   static int64_t num_notifications = 0;
   pthread_mutex_lock(&notification_mutex_);
   while (num_notifications < num_notifications_) {
+    std::cout << "next notification " << num_notifications << " " << num_notifications_ << std::endl;
     int r = pthread_cond_wait(&notification_cond_, &notification_mutex_);
     num_notifications += 1;
   }
