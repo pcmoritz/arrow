@@ -125,6 +125,11 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
     ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
     HASH_ADD(hh, table_, id, sizeof(id), entry);
     pthread_rwlock_unlock(&lock_);
+
+    pthread_mutex_lock(&notification_mutex_);
+    num_notifications_ += 1;
+    pthread_cond_signal(&notification_cond_);
+    pthread_mutex_unlock(&notification_mutex_);
   }
   return Status::OK();
 }
