@@ -111,6 +111,11 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
     entry->pointer = pointer;
     entry->reference_count = 1;
     entry->lru_time = GetTimeMs();
+    // Need to re-enter the entry into the object table so
+    // that the hashtable linked list is extended and the right
+    // object notification will be triggered.
+    HASH_DEL(table_, entry);
+    HASH_ADD(hh, table_, id, sizeof(id), entry);
     pthread_cond_signal(&entry->cond);
     pthread_mutex_unlock(&entry->mutex);
 

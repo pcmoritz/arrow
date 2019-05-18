@@ -150,6 +150,7 @@ class TestPlasmaClient(object):
         for i in range(length):
             assert memory_buffer[i] == i % 256
 
+    """
     def test_create_with_metadata(self):
         for length in range(0, 1000, 3):
             # Create an object id string.
@@ -176,6 +177,7 @@ class TestPlasmaClient(object):
             assert len(metadata) == len(metadata_buffer)
             for i in range(len(metadata)):
                 assert metadata[i] == metadata_buffer[i]
+    """
 
     def test_create_existing(self):
         # This test is partially used to test the code path in which we create
