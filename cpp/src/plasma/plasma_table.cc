@@ -129,6 +129,7 @@ Status PlasmaTable::Add(const ObjectID& id, int64_t data_size, int64_t metadata_
     entry = MakePlasmaTableEntry(id, data_size, metadata_size, pointer);
     ARROW_CHECK(pthread_rwlock_wrlock(&lock_) == 0);
     HASH_ADD(hh, table_, id, sizeof(id), entry);
+    allocated_bytes_ += (data_size + metadata_size);
     pthread_rwlock_unlock(&lock_);
 
     pthread_mutex_lock(&notification_mutex_);

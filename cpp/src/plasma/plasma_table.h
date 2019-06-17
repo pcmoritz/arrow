@@ -38,6 +38,8 @@ private:
   // This will signal to other processes that a new object is available.
   pthread_cond_t notification_cond_;
   int64_t num_notifications_;
+  // Total number of bytes in the store.
+  int64_t allocated_bytes_;
   PlasmaTableEntry* table_;
 };
 
