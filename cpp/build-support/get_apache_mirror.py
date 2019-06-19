@@ -24,7 +24,9 @@ try:
     from urllib2 import urlopen
 except ImportError:
     # py3
-    from urllib.request import urlopen
+    import urllib3.contrib.pyopenssl
+    urllib3.contrib.pyopenssl.inject_into_urllib3()
+    from urllib3.request import urlopen
 
 suggested_mirror = urlopen('https://www.apache.org/dyn/'
                            'closer.cgi?as_json=1').read()
