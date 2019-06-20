@@ -20,14 +20,8 @@
 # mirror for downloading dependencies, e.g. in CMake
 
 import json
-try:
-    from urllib2 import urlopen
-except ImportError:
-    # py3
-    import urllib3.contrib.pyopenssl
-    urllib3.contrib.pyopenssl.inject_into_urllib3()
-    from urllib3.request import urlopen
+import requests
 
-suggested_mirror = urlopen('https://www.apache.org/dyn/'
-                           'closer.cgi?as_json=1').read()
+suggested_mirror = requests.get('https://www.apache.org/dyn/'
+                                'closer.cgi?as_json=1').content
 print(json.loads(suggested_mirror.decode('utf-8'))['preferred'])
