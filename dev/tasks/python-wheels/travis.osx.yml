@@ -51,6 +51,7 @@ before_install:
   # Remove shared grpc libraries installed by brew to make sure
   # we are linked against the static ones.
   - rm -f /usr/local/opt/grpc/lib/*.dylib
+  - rm -f /usr/local/opt/c-ares/lib/*.dylib
 
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh
@@ -69,6 +70,7 @@ install:
   # test the built wheels, remove llvm and grpc to ensure they link statically
   - brew uninstall llvm@7
   - brew uninstall grpc
+  - brew uninstall c-ares
   - install_run arrow
 
   # move built wheels to a top level directory
