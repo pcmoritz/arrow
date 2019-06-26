@@ -136,6 +136,7 @@ function build_wheel {
           -DBoost_NAMESPACE=arrow_boost \
           -DARROW_FLIGHT=ON \
           -DgRPC_SOURCE=BUNDLED \
+          -DCARES_SOURCE=BUNDLED \
           -DMAKE=make \
           ..
     make -j5
