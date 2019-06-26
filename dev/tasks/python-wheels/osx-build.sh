@@ -137,6 +137,7 @@ function build_wheel {
           -DARROW_FLIGHT=ON \
           -DgRPC_SOURCE=BUNDLED \
           -Dc-ares_SOURCE=BUNDLED \
+          -DOPENSSL_ROOT_DIR=/usr/local/opt/openssl/ \
           -DMAKE=make \
           ..
     make -j5
