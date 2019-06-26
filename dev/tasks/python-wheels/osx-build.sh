@@ -135,8 +135,7 @@ function build_wheel {
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DARROW_FLIGHT=ON \
-          -DgRPC_SOURCE=SYSTEM \
-          -DARROW_PROTOBUF_USE_SHARED=OFF \
+          -DgRPC_SOURCE=BUNDLED \
           -DMAKE=make \
           ..
     make -j5
