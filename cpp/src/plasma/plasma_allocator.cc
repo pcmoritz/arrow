@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/util/logging.h>
+#include "arrow/util/logging.h"
 
 #include "plasma/malloc.h"
 #include "plasma/plasma_allocator.h"

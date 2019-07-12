@@ -27,7 +27,6 @@
 
 #include <gtest/gtest.h>
 
-#include "arrow/testing/gtest_util.h"
 #include "arrow/util/io-util.h"
 
 #include "plasma/client.h"
@@ -42,11 +41,20 @@ using arrow::internal::TemporaryDir;
 
 std::string test_executable;  // NOLINT
 
+void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expected) {
+  ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.size())
+      << "Mismatching buffer size";
+  const uint8_t* buffer_data = buffer.data();
+  for (size_t i = 0; i < expected.size(); ++i) {
+    ASSERT_EQ(buffer_data[i], expected[i]);
+  }
+}
+
 void AssertObjectBufferEqual(const ObjectBuffer& object_buffer,
                              const std::vector<uint8_t>& metadata,
                              const std::vector<uint8_t>& data) {
-  arrow::AssertBufferEqual(*object_buffer.metadata, metadata);
-  arrow::AssertBufferEqual(*object_buffer.data, data);
+  AssertBufferEqual(*object_buffer.metadata, metadata);
+  AssertBufferEqual(*object_buffer.data, data);
 }
 
 class TestPlasmaStore : public ::testing::Test {
@@ -288,7 +296,7 @@ TEST_F(TestPlasmaStore, GetTest) {
   {
     auto metadata = object_buffers[0].metadata;
     object_buffers.clear();
-    ::arrow::AssertBufferEqual(*metadata, std::string{42});
+    AssertBufferEqual(*metadata, std::vector<uint8_t>{42});
     EXPECT_TRUE(client_.IsInUse(object_id));
   }
   // Object is automatically released
