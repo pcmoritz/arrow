@@ -39,7 +39,7 @@ import pyarrow
 from pyarrow.lib cimport Buffer, NativeFile, check_status, pyarrow_wrap_buffer
 from pyarrow.lib import ArrowException
 from pyarrow.includes.libarrow cimport (CBuffer, CMutableBuffer,
-                                        CFixedSizeBufferWriter, CStatus)
+                                        CFixedSizeBufferWriter, CStatus, IsPyError)
 from pyarrow.includes.libplasma cimport *
 
 from pyarrow import compat
@@ -272,6 +272,10 @@ class PlasmaObjectExists(ArrowException):
 cdef int plasma_check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
+
+    with gil:
+        if IsPyError(status):
+            return -1
 
     with gil:
         message = compat.frombytes(status.message())
